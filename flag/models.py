@@ -21,31 +21,31 @@ STATUS = getattr(settings, "FLAG_STATUSES", [
 
 
 class FlaggedContent(models.Model):
-    
+
     content_type = models.ForeignKey(ContentType)
     object_id = models.PositiveIntegerField()
     content_object = generic.GenericForeignKey("content_type", "object_id")
-    
-    creator = models.ForeignKey(User, related_name="flagged_content") # user who created flagged content -- this is kept in model so it outlives content
+
+    creator = models.ForeignKey(User, related_name="flagged_content", null=True, blank=True) # user who created flagged content -- this is kept in model so it outlives content
     status = models.CharField(max_length=1, choices=STATUS, default="1")
     moderator = models.ForeignKey(User, null=True, related_name="moderated_content") # moderator responsible for last status change
     count = models.PositiveIntegerField(default=1)
-    
+
     class Meta:
         unique_together = [("content_type", "object_id")]
 
 
 class FlagInstance(models.Model):
-    
+
     flagged_content = models.ForeignKey(FlaggedContent)
     user = models.ForeignKey(User) # user flagging the content
     when_added = models.DateTimeField(default=datetime.now)
     when_recalled = models.DateTimeField(null=True) # if recalled at all
-    comment = models.TextField() # comment by the flagger
+    comment = models.TextField(null=True, blank=True) # comment by the flagger
 
 
 def add_flag(flagger, content_type, object_id, content_creator, comment, status=None):
-    
+
     # check if it's already been flagged
     defaults = dict(creator=content_creator)
     if status is not None:
@@ -61,18 +61,18 @@ def add_flag(flagger, content_type, object_id, content_creator, comment, status=
         # pull flagged_content from database to get count attribute filled
         # properly (not the best way, but works)
         flagged_content = FlaggedContent.objects.get(pk=flagged_content.pk)
-    
+
     flag_instance = FlagInstance(
         flagged_content = flagged_content,
         user = flagger,
         comment = comment
     )
     flag_instance.save()
-    
+
     signals.content_flagged.send(
         sender = FlaggedContent,
         flagged_content = flagged_content,
         flagged_instance = flag_instance,
     )
-    
+
     return flag_instance
