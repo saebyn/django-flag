@@ -5,8 +5,21 @@
     <ul>
         {% for user in user_list %}
         <li>
-            {{ user.username }}
-            {% flag user %}
+            <strong>{{ user.username }}</strong>
+            -
+            {% with user|flag_count as user_flag_count %}
+                {% if user_flag_count %}
+                Flagged {{ user_flag_count }} times (status {{ user|flag_status }})
+                {% else %}
+                    Never flagged
+                {% endif %}
+            {% endwith %}
+            {% if request.user.is_authenticated %}
+                {% if user|can_be_flagged_by:request.user %}{% flag user %}{% else %}- Already flagged{% endif %}
+            {% else %}
+                - You must be authenticated to flag !
+
+            {% endif %}
         </li>
         {% endfor %}
     </ul>

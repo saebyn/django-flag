@@ -3,7 +3,8 @@ from django import template
 from django.contrib.contenttypes.models import ContentType
 from flag.forms import FlagForm, FlagFormWithCreator
 from flag.views import get_next
-
+from flag.models import FlaggedContent
+from flag.settings import LIMIT_SAME_OBJECT_FOR_USER
 
 register = template.Library()
 
@@ -39,3 +40,43 @@ def flag(context, content_object, creator_field=None):
             form = form,
             next = get_next(request)
         )
+
+@register.filter
+def flag_count(content_object):
+    """
+    This filter will return the number of flags for the given object
+    Usage : {{ some_object|flag_count }}
+    """
+    try:
+        return FlaggedContent.objects.get_for_object(content_object).count
+    except:
+        return 0
+
+@register.filter
+def flag_status(content_object):
+    """
+    This filter will return the flag's status for the given object
+    Usage : {{ some_object|flag_status }}
+    """
+    try:
+        return FlaggedContent.objects.get_for_object(content_object).status
+    except:
+        return None
+
+@register.filter
+def can_be_flagged_by(content_object, user):
+    """
+    This filter will return True if the given user can flag the given object.
+    We check that the user is authenticated, but also that the
+    LIMIT_SAME_OBJECT_FOR_USER is not raised
+    """
+    if not user or not user.is_authenticated() or not user.is_active:
+        return False
+    if not LIMIT_SAME_OBJECT_FOR_USER:
+        return True
+    try:
+        flagged_content = FlaggedContent.objects.get_for_object(content_object)
+        count = flagged_content.count_flags_by_user(user)
+        return count < LIMIT_SAME_OBJECT_FOR_USER
+    except:
+        return False

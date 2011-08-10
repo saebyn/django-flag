@@ -29,6 +29,22 @@ class ContentAlreadyFlaggedByUserException(Exception):
     """
     pass
 
+class FlaggedContentManager(models.Manager):
+    """
+    Manager for the FlaggedContent models
+    """
+
+    def get_for_object(self, content_object):
+        """
+        Helper to get a FlaggedContent instance for the given object
+        """
+        content_type = ContentType.objects.get_for_model(content_object)
+        return self.get(
+                content_type__id=content_type.id,
+                object_id=content_object.id
+            )
+
+
 class FlaggedContent(models.Model):
 
     content_type = models.ForeignKey(ContentType)
@@ -39,6 +55,9 @@ class FlaggedContent(models.Model):
     status = models.CharField(max_length=1, choices=STATUS, default="1")
     moderator = models.ForeignKey(User, null=True, related_name="moderated_content") # moderator responsible for last status change
     count = models.PositiveIntegerField(default=1)
+
+    # manager
+    objects = FlaggedContentManager()
 
     class Meta:
         unique_together = [("content_type", "object_id")]
