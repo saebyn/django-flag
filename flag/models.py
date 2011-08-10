@@ -90,6 +90,14 @@ class FlaggedContent(models.Model):
             return True
         return self.count < LIMIT_FOR_OBJECT
 
+    def assert_can_be_flagged(self):
+        """
+        Raise an acception if the "can_be_flagged" method return False
+        """
+        if not self.can_be_flagged():
+            raise ContentFlaggedEnoughException(_('Flag limit raised'))
+        return True
+
     def can_be_flagged_by_user(self, user):
         """
         Check that the LIMIT_SAME_OBJECT_FOR_USER is not raised for this user
@@ -99,6 +107,29 @@ class FlaggedContent(models.Model):
         if not self.can_be_flagged():
             return False
         return self.count_flags_by_user(user) < LIMIT_SAME_OBJECT_FOR_USER
+
+    def assert_can_be_flagged_by_user(self, user):
+        """
+        Raise an exception if the given user cannot flag this object
+        """
+        try:
+            self.assert_can_be_flagged()
+        except ContentFlaggedEnoughException, e:
+            raise e
+        else:
+            # do not use self.can_be_flagged_by_user because we need the count
+            count = self.count_flags_by_user(user)
+            if count >= LIMIT_SAME_OBJECT_FOR_USER:
+                error = ungettext(
+                            'You already flagged this',
+                            'You already flagged this %(count)d times',
+                            count
+                        ) % {
+                            'count': count
+                        }
+                raise ContentAlreadyFlaggedByUserException(error)
+
+        return True
 
 
 
@@ -124,21 +155,7 @@ def add_flag(flagger, content_type, object_id, content_creator, comment, status=
     )
 
     # check if the current user can flag this object
-    if LIMIT_SAME_OBJECT_FOR_USER:
-        count = flagged_content.count_flags_by_user(flagger)
-        if count >= LIMIT_SAME_OBJECT_FOR_USER:
-            error = ungettext(
-                        'You already flagged this',
-                        'You already flagged this %(count)d times',
-                        count
-                    ) % {
-                            'count': count
-                        }
-            raise ContentAlreadyFlaggedByUserException(error)
-
-    # check if the object can still be flagged
-    if LIMIT_FOR_OBJECT and flagged_content.count >= LIMIT_FOR_OBJECT:
-        raise ContentFlaggedEnoughException(_('Flag limit raised'))
+    flagged_content.assert_can_be_flagged_by_user(flagger)
 
     if not created:
         flagged_content.count = models.F("count") + 1
