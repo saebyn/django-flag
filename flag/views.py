@@ -53,14 +53,17 @@ def flag(request):
             # get object to flag
             object_pk = form.cleaned_data['object_pk']
             content_type = get_object_or_404(ContentType, id = int(form.cleaned_data['content_type']))
-            content_object = content_type.get_object_for_this_type(id=object_pk)
 
             # manage creator
             creator = None
             if form_class == FlagFormWithCreator:
                 creator_field = form.cleaned_data['creator_field']
-                if creator_field and hasattr(content_object, creator_field):
-                    creator = getattr(content_object, creator_field)
+                if creator_field:
+                    creator = getattr(
+                            content_type.get_object_for_this_type(id=object_pk),
+                            creator_field,
+                            None
+                        )
 
             # manage comment
             if ALLOW_COMMENTS:
