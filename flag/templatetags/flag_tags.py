@@ -4,7 +4,6 @@ from django.contrib.contenttypes.models import ContentType
 from flag.forms import FlagForm, FlagFormWithCreator
 from flag.views import get_next
 from flag.models import FlaggedContent
-from flag.settings import LIMIT_SAME_OBJECT_FOR_USER
 
 register = template.Library()
 
@@ -70,13 +69,10 @@ def can_be_flagged_by(content_object, user):
     We check that the user is authenticated, but also that the
     LIMIT_SAME_OBJECT_FOR_USER is not raised
     """
-    if not user or not user.is_authenticated() or not user.is_active:
+    if not (user and user.is_active and user.is_authenticated()):
         return False
-    if not LIMIT_SAME_OBJECT_FOR_USER:
-        return True
     try:
         flagged_content = FlaggedContent.objects.get_for_object(content_object)
-        count = flagged_content.count_flags_by_user(user)
-        return count < LIMIT_SAME_OBJECT_FOR_USER
+        return flagged_content.can_be_flagged_by_user(user)
     except:
         return False
