@@ -10,7 +10,7 @@ from django.contrib import messages
 
 from flag.settings import ALLOW_COMMENTS
 from flag.forms import FlagForm, FlagFormWithCreator
-from flag.models import add_flag
+from flag.models import add_flag, ContentAlreadyFlaggedByUserException
 
 def _validate_next_parameter(request, next):
     """
@@ -68,12 +68,14 @@ def flag(request):
             else:
                 comment = None
 
-            # add the flag
-            add_flag(request.user, content_type, object_pk, creator, comment)
-
-            # display a beautiful message
-            messages.success(request, _("You have added a flag. A moderator will review your "
-                    "submission shortly."))
+            # add the flag, but check the user can do it
+            try:
+                add_flag(request.user, content_type, object_pk, creator, comment)
+            except ContentAlreadyFlaggedByUserException, e:
+                messages.error(request, unicode(e))
+            else:
+                messages.success(request, _("You have added a flag. A moderator will review your "
+                        "submission shortly."))
 
     # try to always redirect to next
     next = get_next(request)

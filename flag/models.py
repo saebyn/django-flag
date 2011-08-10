@@ -6,8 +6,9 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
-from django.utils.translation import ugettext_lazy as _
+from django.utils.translation import ugettext_lazy as _, ungettext
 
+from flag.settings import LIMIT_SAME_OBJECT_FOR_USER
 from flag import signals
 
 
@@ -19,6 +20,14 @@ STATUS = getattr(settings, "FLAG_STATUSES", [
     ("5", _("content removed by moderator")),
 ])
 
+
+class ContentAlreadyFlaggedByUserException(Exception):
+    """
+    Exception used when a user try to flag an object he had
+    already flagged and the number of its flags raised the
+    LIMIT_SAME_OBJECT_FOR_USER value
+    """
+    pass
 
 class FlaggedContent(models.Model):
 
@@ -33,6 +42,13 @@ class FlaggedContent(models.Model):
 
     class Meta:
         unique_together = [("content_type", "object_id")]
+
+    def count_flags_by_user(self, user):
+        """
+        Helper to get the number of flags on this flagged content by the
+        given user
+        """
+        return self.flaginstance_set.filter(user=user).count()
 
 
 class FlagInstance(models.Model):
@@ -55,6 +71,20 @@ def add_flag(flagger, content_type, object_id, content_creator, comment, status=
         object_id = object_id,
         defaults = defaults
     )
+
+    # check if the current user can flag this object
+    if LIMIT_SAME_OBJECT_FOR_USER:
+        count = flagged_content.count_flags_by_user(flagger)
+        if count >= LIMIT_SAME_OBJECT_FOR_USER:
+            error = ungettext(
+                        'You already flagged this',
+                        'You already flagged this %(count)d times',
+                        count
+                    ) % {
+                            'count': count
+                        }
+            raise ContentAlreadyFlaggedByUserException(error)
+
     if not created:
         flagged_content.count = models.F("count") + 1
         flagged_content.save()
