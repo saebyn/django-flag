@@ -14,8 +14,13 @@
                     Never flagged
                 {% endif %}
             {% endwith %}
+            -
             {% if request.user.is_authenticated %}
-                {% if user|can_be_flagged_by:request.user %}{% flag user %}{% else %}- Already flagged enough{% endif %}
+                {% if user|can_be_flagged_by:request.user %}
+                    <a href="{{ user|flag_confirm_url }}">Flag</a>
+                {% else %}
+                    Already flagged enough
+                {% endif %}
             {% else %}
                 - You must be authenticated to flag !
 
