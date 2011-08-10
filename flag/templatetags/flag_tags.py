@@ -1,7 +1,7 @@
 from django import template
 
 from flag.forms import get_default_form
-from flag.views import get_next
+from flag.views import get_next, get_confirm_url_for_object
 from flag.models import FlaggedContent
 
 register = template.Library()
@@ -44,6 +44,7 @@ def can_be_flagged_by(content_object, user):
     This filter will return True if the given user can flag the given object.
     We check that the user is authenticated, but also that the
     LIMIT_SAME_OBJECT_FOR_USER is not raised
+    Usage: {% if some_object|can_by_flagged_by:request.user %}...{% endif %}
     """
     if not (user and user.is_active and user.is_authenticated()):
         return False
@@ -52,3 +53,15 @@ def can_be_flagged_by(content_object, user):
         return flagged_content.can_be_flagged_by_user(user)
     except:
         return False
+
+@register.filter
+def flag_confirm_url(content_object, creator_field=None):
+    """
+    This filter will return the url of the flag confirm page for the given object
+    Usage: {{ some_object|flag_confirm_url }}
+    Or, with a creator_field : {{ some_object|flag_confirm_url:"some_field" }}
+    """
+    try:
+        return get_confirm_url_for_object(content_object, creator_field)
+    except:
+        return ""

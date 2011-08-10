@@ -1,0 +1,6 @@
+{% extends "flag/confirm.html" %}
+{% block flag_form %}
+    Flag user <strong>{{ content_object.username }}</strong> :
+    {{ block.super }}
+{% endblock %}
+
