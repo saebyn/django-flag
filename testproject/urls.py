@@ -20,5 +20,5 @@ urlpatterns = patterns('',
     url(r'^flag/', include('flag.urls')),
 
     # users
-    url(r'^', UserListView.as_view())
+    url(r'^$', UserListView.as_view())
 )
