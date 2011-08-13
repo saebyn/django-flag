@@ -1,4 +1,5 @@
 from django import template
+from django.db.models import ObjectDoesNotExist
 
 from flag.forms import get_default_form
 from flag.views import get_next, get_confirm_url_for_object
@@ -51,6 +52,9 @@ def can_be_flagged_by(content_object, user):
     try:
         flagged_content = FlaggedContent.objects.get_for_object(content_object)
         return flagged_content.can_be_flagged_by_user(user)
+    except ObjectDoesNotExist:
+        # no FlaggedContent, we know it canbe flagged
+        return True
     except:
         return False
 
