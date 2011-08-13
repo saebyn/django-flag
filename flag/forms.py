@@ -1,5 +1,6 @@
 from django import forms
 from django.contrib.contenttypes.models import ContentType
+from django.utils.translation import ugettext_lazy as _
 from flag.settings import ALLOW_COMMENTS
 
 class FlagForm(forms.Form):
@@ -10,7 +11,7 @@ class FlagForm(forms.Form):
     object_pk     = forms.CharField(widget=forms.HiddenInput)
 
     if ALLOW_COMMENTS:
-        comment = forms.CharField(widget=forms.Textarea())
+        comment = forms.CharField(widget=forms.Textarea(), label=_(u'Comment'))
 
 class FlagFormWithCreator(FlagForm):
     """
