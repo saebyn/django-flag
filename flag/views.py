@@ -2,7 +2,7 @@ import urlparse
 
 from django.http import Http404, HttpResponseBadRequest
 from django.shortcuts import get_object_or_404, redirect, render
-from django.db.models import get_model
+from django.db.models import get_model, ObjectDoesNotExist
 from django.core.urlresolvers import reverse
 
 from django.contrib.auth.decorators import login_required
@@ -144,12 +144,17 @@ def confirm(request, app_label, object_name, object_id, creator_field=None, form
     next = get_next(request)
 
     # get the flagged_content, and test if it can be flagged by the user
-    flagged_content = FlaggedContent.objects.get_for_object(content_object)
     try:
-        flagged_content.assert_can_be_flagged_by_user(request.user)
-    except FlagException, e:
-        messages.error(request, unicode(e))
-        return redirect(next)
+        flagged_content = FlaggedContent.objects.get_for_object(content_object)
+        try:
+            flagged_content.assert_can_be_flagged_by_user(request.user)
+        except FlagException, e:
+            messages.error(request, unicode(e))
+            return redirect(next)
+    except ObjectDoesNotExist:
+        # if the FlaggedContent does not exists, the object was never flagged
+        # so we know that we can continue
+        pass
 
     # define the form
     form = form or get_default_form(content_object, creator_field)
