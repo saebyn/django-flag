@@ -66,6 +66,33 @@ def get_confirm_url_for_object(content_object, creator_field=None):
 
     return reverse('flag_confirm', kwargs=url_params)
 
+def get_content_object(ctype, object_pk):
+    """
+    Given a content type ("app_name.model_name") and an object's pk, try to
+    return the mathcing object
+    (taken from django.contrib.comments.views.comments.post_comment)
+    """
+    if ctype is None or object_pk is None:
+        return FlagPostBadRequest("Missing content_type or object_pk field.")
+    try:
+        model = get_model(*ctype.split(".", 1))
+        return model._default_manager.get(pk=object_pk)
+    except TypeError:
+        return FlagPostBadRequest(
+            "Invalid content_type value: %r" % escape(ctype))
+    except AttributeError:
+        return FlagPostBadRequest(
+            "The given content-type %r does not resolve to a valid model." % \
+                escape(ctype))
+    except ObjectDoesNotExist:
+        return FlagPostBadRequest(
+            "No object matching content-type %r and object PK %r exists." % \
+                (escape(ctype), escape(object_pk)))
+    except (ValueError, ValidationError), e:
+        return FlagPostBadRequest(
+            "Attempting go get content-type %r and object PK %r exists raised %s" % \
+                (escape(ctype), escape(object_pk), e.__class__.__name__))
+
 @login_required
 def flag(request):
     """
@@ -76,30 +103,14 @@ def flag(request):
     if request.method == 'POST':
         post_data = request.POST.copy()
 
-        # try to get the object to flag
-        # (taken from django.contrib.comments.views.comments.post_comment)
-        ctype = post_data.get("content_type")
         object_pk = post_data.get('object_pk')
-        if ctype is None or object_pk is None:
-            return FlagPostBadRequest("Missing content_type or object_pk field.")
-        try:
-            model = get_model(*ctype.split(".", 1))
-            content_object = model._default_manager.get(pk=object_pk)
-        except TypeError:
-            return FlagPostBadRequest(
-                "Invalid content_type value: %r" % escape(ctype))
-        except AttributeError:
-            return FlagPostBadRequest(
-                "The given content-type %r does not resolve to a valid model." % \
-                    escape(ctype))
-        except ObjectDoesNotExist:
-            return FlagPostBadRequest(
-                "No object matching content-type %r and object PK %r exists." % \
-                    (escape(ctype), escape(object_pk)))
-        except (ValueError, ValidationError), e:
-            return FlagPostBadRequest(
-                "Attempting go get content-type %r and object PK %r exists raised %s" % \
-                    (escape(ctype), escape(object_pk), e.__class__.__name__))
+        content_object = get_content_object(
+                post_data.get("content_type"),
+                object_pk
+            )
+
+        if (isinstance(content_object, HttpResponseBadRequest)):
+                return content_object
 
         content_type = ContentType.objects.get_for_model(content_object)
 
@@ -170,18 +181,9 @@ def confirm(request, app_label, object_name, object_id, creator_field=None, form
     The template rendered is flag/confirm.html but it can be overrided for
     each model by defining a template flag/confirm_applabel_modelname.html
     """
-    # get the object to flag from parameters
-    # https://github.com/liberation/django-favorites/blob/master/favorites/utils.py
-    model = get_model(app_label, object_name)
-    try:
-        content_type = ContentType.objects.get_for_model(model)
-    except AttributeError: # there no such model
-        return FlagPostBadRequest()
-    else:
-        try:
-            content_object = content_type.get_object_for_this_type(pk=object_id)
-        except model.DoesNotExist: # there no such object:
-            return FlagPostBadRequest()
+    content_object = get_content_object('%s.%s' % (app_label, object_name), object_id)
+    if (isinstance(content_object, HttpResponseBadRequest)):
+            return content_object
 
     # where to go when finished, also used on error
     next = get_next(request)
