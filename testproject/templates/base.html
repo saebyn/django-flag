@@ -1,4 +1,5 @@
 <html>
+<p>{% if request.user.is_authenticated %}(logged as {{ request.user.username }}){% else %}You must be logged to use this testproject. You can do it in the <a href='/admin/'>admin interface</a>.{% endif %}</p>
 
 {% if messages %}
 <ul class="messages">

@@ -1,15 +1,14 @@
 from django import forms
-from django.contrib.contenttypes.models import ContentType
 from django.utils.translation import ugettext_lazy as _
 from flag.settings import ALLOW_COMMENTS
+from django.contrib.comments.forms import CommentSecurityForm
 
-class FlagForm(forms.Form):
+class FlagForm(CommentSecurityForm):
     """
-    The form to be used by users for flagging objects
+    The form to be used by users for flagging objects.
+    We use CommentSecurityForm to add a security_hash, so the __init__ need
+    the object to flag as the first (name `target_object`) parameter
     """
-    content_type  = forms.CharField(widget=forms.HiddenInput)
-    object_pk     = forms.CharField(widget=forms.HiddenInput)
-
     if ALLOW_COMMENTS:
         comment = forms.CharField(widget=forms.Textarea(), label=_(u'Comment'))
 
@@ -24,17 +23,8 @@ def get_default_form(content_object, creator_field=None):
     """
     Helper to get a form from the right class, with initial parameters set
     """
-    # get the content type for the given object
-    content_type = ContentType.objects.get(
-        app_label = content_object._meta.app_label,
-        model = content_object._meta.module_name
-    )
-
-    # initial data for the form
-    initial=dict(
-        content_type = content_type.id,
-        object_pk = content_object.pk,
-    )
+    # initial data for the form (content_type and object_pk automaticaly set)
+    initial = {}
 
     # by default, a class without creator_field
     form_class = FlagForm
@@ -44,5 +34,5 @@ def get_default_form(content_object, creator_field=None):
         form_class = FlagFormWithCreator
         initial['creator_field'] = creator_field
 
-    return form_class(initial=initial)
+    return form_class(target_object=content_object, initial=initial)
 

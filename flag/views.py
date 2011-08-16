@@ -1,14 +1,18 @@
 import urlparse
 
 from django.http import Http404, HttpResponseBadRequest
-from django.shortcuts import get_object_or_404, redirect, render
-from django.db.models import get_model, ObjectDoesNotExist
+from django.shortcuts import redirect, render
+from django.template.loader import render_to_string
+from django.db.models import get_model
+from django.core.exceptions import ObjectDoesNotExist, ValidationError
 from django.core.urlresolvers import reverse
-
 from django.contrib.auth.decorators import login_required
 from django.contrib.contenttypes.models import ContentType
 from django.utils.translation import ugettext as _
 from django.contrib import messages
+from django.utils.html import escape
+
+from django.conf import settings
 
 from flag.settings import ALLOW_COMMENTS
 from flag.forms import FlagForm, FlagFormWithCreator, get_default_form
@@ -35,6 +39,18 @@ def get_next(request):
         next = request.path
     return next
 
+class FlagPostBadRequest(HttpResponseBadRequest):
+    """
+    (based on django.contrib.comments.views.comments.CommentPostBadRequest)
+    Response returned when a flag post is invalid. If ``DEBUG`` is on a
+    nice-ish error message will be displayed (for debugging purposes), but in
+    production mode a simple opaque 400 page will be displayed.
+    """
+    def __init__(self, why):
+        super(FlagPostBadRequest, self).__init__()
+        if settings.DEBUG:
+            self.content = render_to_string("flag/400-debug.html", {"why": why})
+
 def get_confirm_url_for_object(content_object, creator_field=None):
     """
     Return the url to the flag confirm page for the given object
@@ -58,18 +74,49 @@ def flag(request):
     """
 
     if request.method == 'POST':
+        post_data = request.POST.copy()
+
+        # try to get the object to flag
+        # (taken from django.contrib.comments.views.comments.post_comment)
+        ctype = post_data.get("content_type")
+        object_pk = post_data.get('object_pk')
+        if ctype is None or object_pk is None:
+            return FlagPostBadRequest("Missing content_type or object_pk field.")
+        try:
+            model = get_model(*ctype.split(".", 1))
+            content_object = model._default_manager.get(pk=object_pk)
+        except TypeError:
+            return FlagPostBadRequest(
+                "Invalid content_type value: %r" % escape(ctype))
+        except AttributeError:
+            return FlagPostBadRequest(
+                "The given content-type %r does not resolve to a valid model." % \
+                    escape(ctype))
+        except ObjectDoesNotExist:
+            return FlagPostBadRequest(
+                "No object matching content-type %r and object PK %r exists." % \
+                    (escape(ctype), escape(object_pk)))
+        except (ValueError, ValidationError), e:
+            return FlagPostBadRequest(
+                "Attempting go get content-type %r and object PK %r exists raised %s" % \
+                    (escape(ctype), escape(object_pk), e.__class__.__name__))
+
+        content_type = ContentType.objects.get_for_model(content_object)
 
         # get the form class regrding if we have a creator_field
         form_class = FlagForm
-        if 'creator_field' in request.POST:
+        if 'creator_field' in post_data:
             form_class = FlagFormWithCreator
 
-        form = form_class(request.POST)
-        if form.is_valid():
+        form = form_class(target_object=content_object, data=post_data)
 
-            # get object to flag
-            object_pk = form.cleaned_data['object_pk']
-            content_type = get_object_or_404(ContentType, id = int(form.cleaned_data['content_type']))
+        if form.security_errors():
+            return FlagPostBadRequest(
+                "The flag form failed security verification: %s" % \
+                    escape(str(form.security_errors())))
+
+
+        if form.is_valid():
 
             # manage creator
             creator = None
@@ -77,7 +124,7 @@ def flag(request):
                 creator_field = form.cleaned_data['creator_field']
                 if creator_field:
                     creator = getattr(
-                            content_type.get_object_for_this_type(id=object_pk),
+                            content_object,
                             creator_field,
                             None
                         )
@@ -100,15 +147,11 @@ def flag(request):
         else:
             # form not valid, we return to the confirm page
 
-            # try to get something from post params
-            object_pk = request.POST['object_pk']
-            content_type = get_object_or_404(ContentType, id = int(request.POST['content_type']))
-
             return confirm(request,
                 app_label = content_type.app_label,
                 object_name = content_type.model,
                 object_id = object_pk,
-                creator_field = request.POST.get('creator_field', None),
+                creator_field = post_data.get('creator_field', None),
                 form = form
             )
 
@@ -133,12 +176,12 @@ def confirm(request, app_label, object_name, object_id, creator_field=None, form
     try:
         content_type = ContentType.objects.get_for_model(model)
     except AttributeError: # there no such model
-        return HttpResponseBadRequest()
+        return FlagPostBadRequest()
     else:
         try:
             content_object = content_type.get_object_for_this_type(pk=object_id)
         except model.DoesNotExist: # there no such object:
-            return HttpResponseBadRequest()
+            return FlagPostBadRequest()
 
     # where to go when finished, also used on error
     next = get_next(request)
