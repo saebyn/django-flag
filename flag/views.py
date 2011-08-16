@@ -117,7 +117,7 @@ def flag(request):
     if next:
         return redirect(next)
     else:
-        return Http404
+        raise Http404
 
 
 @login_required
