@@ -8,8 +8,9 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 from django.utils.translation import ugettext_lazy as _, ungettext
 
-from flag.settings import LIMIT_SAME_OBJECT_FOR_USER, LIMIT_FOR_OBJECT
+from flag.settings import LIMIT_SAME_OBJECT_FOR_USER, LIMIT_FOR_OBJECT, MODELS
 from flag import signals
+from flag.exceptions import *
 
 
 STATUS = getattr(settings, "FLAG_STATUSES", [
@@ -20,27 +21,6 @@ STATUS = getattr(settings, "FLAG_STATUSES", [
     ("5", _("content removed by moderator")),
 ])
 
-
-class FlagException(Exception):
-    """
-    Base class for django-flag exceptions
-    """
-    pass
-
-class ContentAlreadyFlaggedByUserException(FlagException):
-    """
-    Exception raised when a user try to flag an object he had
-    already flagged and the number of its flags raised the
-    LIMIT_SAME_OBJECT_FOR_USER value
-    """
-    pass
-
-class ContentFlaggedEnoughException(FlagException):
-    """
-    Exception raised when someone try to flag an object which is
-    already flagged and the LIMIT_FOR_OBJECT is raised
-    """
-    pass
 
 class FlaggedContentManager(models.Manager):
     """
@@ -56,6 +36,57 @@ class FlaggedContentManager(models.Manager):
                 content_type__id=content_type.id,
                 object_id=content_object.id
             )
+
+    def model_can_be_flagged(self, content_type):
+        """
+        Return True if the model is listed in the MODELS settings (or if this
+        settings is not defined)
+        `content_type` can be : a ContentType id (as integer or string), a
+        ContentType object, a string 'app_label.model_name', a model or an object
+        """
+        if MODELS is None:
+            return True
+
+        # try to find app and model from the content_type
+
+        # check if integer, as integer or string => content_type id
+        if isinstance(content_type, int) or (
+                isinstance(content_type, basestring) and content_type.isdigit()):
+            ctype = ContentType.objects.get_for_id(content_type)
+            app_label, model = ctype.app_label, ctype.model
+
+        # check if string => 'app_label.model_name'
+        elif isinstance(content_type, basestring):
+            try:
+                app_label, model = content_type.split('.', 1)
+            except:
+                return False
+
+        # check if its a content_type object
+        elif isinstance(content_type, ContentType):
+            app_label, model = content_type.app_label, content_type.model
+
+        # check if a model
+        else:
+            try:
+                ctype = ContentType.objects.get_for_model(content_type)
+            except Exception, e:
+                print e
+                return False
+            else:
+                app_label, model = ctype.app_label, ctype.model
+
+        # finally we can check
+        print app_label, model
+        model = '%s.%s' % (app_label, model)
+        return model in MODELS
+
+    def assert_model_can_be_flagged(self, content_type_id):
+        """
+        Raise an acception if the "model_can_be_flagged" method return False
+        """
+        if not self.model_can_be_flagged(content_type_id):
+            raise ModelCannotBeFlaggedException(_('This model cannot be flagged'))
 
 
 class FlaggedContent(models.Model):
@@ -143,6 +174,9 @@ class FlagInstance(models.Model):
 
 
 def add_flag(flagger, content_type, object_id, content_creator, comment, status=None):
+
+    # check if we can flag this model
+    FlaggedContent.objects.assert_model_can_be_flagged(content_type)
 
     # check if it's already been flagged
     defaults = dict(creator=content_creator)

@@ -16,7 +16,8 @@ from django.conf import settings
 
 from flag.settings import ALLOW_COMMENTS
 from flag.forms import FlagForm, FlagFormWithCreator, get_default_form
-from flag.models import add_flag, FlagException, FlaggedContent
+from flag.models import add_flag, FlaggedContent
+from flag.exceptions import FlagException
 
 def _validate_next_parameter(request, next):
     """
@@ -76,6 +77,7 @@ def get_content_object(ctype, object_pk):
         return FlagPostBadRequest("Missing content_type or object_pk field.")
     try:
         model = get_model(*ctype.split(".", 1))
+        FlaggedContent.objects.assert_model_can_be_flagged(model)
         return model._default_manager.get(pk=object_pk)
     except TypeError:
         return FlagPostBadRequest(
@@ -92,6 +94,10 @@ def get_content_object(ctype, object_pk):
         return FlagPostBadRequest(
             "Attempting go get content-type %r and object PK %r exists raised %s" % \
                 (escape(ctype), escape(object_pk), e.__class__.__name__))
+    except FlagException, e:
+        return FlagPostBadRequest(
+            "Attempting to flag an unauthorized model (%r)" % \
+                escape(ctype))
 
 @login_required
 def flag(request):

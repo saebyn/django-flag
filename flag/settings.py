@@ -12,3 +12,8 @@ LIMIT_SAME_OBJECT_FOR_USER = getattr(conf.settings, 'FLAG_LIMIT_SAME_OBJECT_FOR_
 # object can be flagged
 LIMIT_FOR_OBJECT = getattr(conf.settings, 'FLAG_LIMIT_FOR_OBJECT', 0)
 
+# Set FLAG_MODELS to a list/tuple of models in your settings to limit the
+# models that can be flagged. The syntax to use is a string for each model :
+# FLAG_MODELS = ('myapp.mymodel', 'otherapp.othermodel',)
+MODELS = getattr(conf.settings, 'FLAG_MODELS', None)
+

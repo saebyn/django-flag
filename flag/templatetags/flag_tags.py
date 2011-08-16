@@ -49,6 +49,8 @@ def can_be_flagged_by(content_object, user):
     """
     if not (user and user.is_active and user.is_authenticated()):
         return False
+    if not FlaggedContent.objects.model_can_be_flagged(content_object):
+        return False
     try:
         flagged_content = FlaggedContent.objects.get_for_object(content_object)
         return flagged_content.can_be_flagged_by_user(user)

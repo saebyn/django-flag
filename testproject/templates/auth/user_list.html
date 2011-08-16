@@ -19,7 +19,7 @@
                 {% if user|can_be_flagged_by:request.user %}
                     <a href="{{ user|flag_confirm_url }}">Flag</a>
                 {% else %}
-                    Already flagged enough
+                    Cannot be flagged (no authorization or enough flagged)
                 {% endif %}
             {% else %}
                 - You must be authenticated to flag !
