@@ -8,19 +8,9 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 from django.utils.translation import ugettext_lazy as _, ungettext
 
-from flag.settings import LIMIT_SAME_OBJECT_FOR_USER, LIMIT_FOR_OBJECT, MODELS
+from flag.settings import *
 from flag import signals
 from flag.exceptions import *
-
-
-STATUS = getattr(settings, "FLAG_STATUSES", [
-    ("1", _("flagged")),
-    ("2", _("flag rejected by moderator")),
-    ("3", _("creator notified")),
-    ("4", _("content removed by creator")),
-    ("5", _("content removed by moderator")),
-])
-
 
 class FlaggedContentManager(models.Manager):
     """
@@ -96,7 +86,7 @@ class FlaggedContent(models.Model):
     content_object = generic.GenericForeignKey("content_type", "object_id")
 
     creator = models.ForeignKey(User, related_name="flagged_content", null=True, blank=True) # user who created flagged content -- this is kept in model so it outlives content
-    status = models.CharField(max_length=1, choices=STATUS, default="1")
+    status = models.CharField(max_length=1, choices=STATUS, default=STATUS[0][0])
     moderator = models.ForeignKey(User, null=True, related_name="moderated_content") # moderator responsible for last status change
     count = models.PositiveIntegerField(default=1)
 
