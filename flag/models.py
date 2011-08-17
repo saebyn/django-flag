@@ -60,14 +60,12 @@ class FlaggedContentManager(models.Manager):
         else:
             try:
                 ctype = ContentType.objects.get_for_model(content_type)
-            except Exception, e:
-                print e
+            except:
                 return False
             else:
                 app_label, model = ctype.app_label, ctype.model
 
         # finally we can check
-        print app_label, model
         model = '%s.%s' % (app_label, model)
         return model in MODELS
 
