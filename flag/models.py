@@ -1,8 +1,7 @@
 from datetime import datetime
 
-from django.conf import settings
 from django.db import models
-
+from django.core import urlresolvers
 from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
@@ -93,6 +92,13 @@ class FlaggedContent(models.Model):
 
     class Meta:
         unique_together = [("content_type", "object_id")]
+        ordering = ('-id',)
+
+    def __unicode__(self):
+        """
+        Show the flagged object in the unicode string
+        """
+        return u'%s' % repr(self.content_object)
 
     def count_flags_by_user(self, user):
         """
@@ -149,6 +155,17 @@ class FlaggedContent(models.Model):
                 raise ContentAlreadyFlaggedByUserException(error)
 
         return True
+
+    def get_content_object_admin_url(self):
+        """
+        Return the admin url to the content object
+        """
+        if self.content_object:
+            return urlresolvers.reverse("admin:%s_%s_change" % (
+                    self.content_object._meta.app_label,
+                    self.content_object._meta.module_name
+                ), args=(self.object_id,)
+            )
 
 
 
