@@ -1,4 +1,4 @@
-__ALL__ = ('FlagException', 'ModelCannotBeFlaggedException', 'ContentAlreadyFlaggedByUserException', 'ContentFlaggedEnoughException')
+__all__ = ('FlagException', 'ModelCannotBeFlaggedException', 'ContentAlreadyFlaggedByUserException', 'ContentFlaggedEnoughException')
 
 class FlagException(Exception):
     """
