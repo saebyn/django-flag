@@ -2,6 +2,18 @@
 django-flag CHANGELOG
 =====================
 
+0.3
+===
+
+(by Twidi : https://github.com/twidi/django-flag/ )
+
+ * full documentation
+ * better admin
+ * add a confirm view
+ * add a test project
+ * add many settings (limit flags number, disallow comment)
+ * use a real django form, with a security hash
+
 0.2
 ===
 
