@@ -143,10 +143,10 @@ class FlaggedContent(models.Model):
         """
         Check that the LIMIT_SAME_OBJECT_FOR_USER is not raised for this user
         """
-        if not flag_settings.LIMIT_SAME_OBJECT_FOR_USER:
-            return True
         if not self.can_be_flagged():
             return False
+        if not flag_settings.LIMIT_SAME_OBJECT_FOR_USER:
+            return True
         return self.count_flags_by_user(user) < flag_settings.LIMIT_SAME_OBJECT_FOR_USER
 
     def assert_can_be_flagged_by_user(self, user):
