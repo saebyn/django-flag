@@ -142,6 +142,8 @@ class FlaggedContent(models.Model):
             raise e
         else:
             # do not use self.can_be_flagged_by_user because we need the count
+            if not flag_settings.LIMIT_SAME_OBJECT_FOR_USER:
+                return
             count = self.count_flags_by_user(user)
             if count >= flag_settings.LIMIT_SAME_OBJECT_FOR_USER:
                 error = ungettext(
@@ -152,8 +154,6 @@ class FlaggedContent(models.Model):
                             'count': count
                         }
                 raise ContentAlreadyFlaggedByUserException(error)
-
-        return True
 
     def get_content_object_admin_url(self):
         """
