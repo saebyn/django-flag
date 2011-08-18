@@ -16,7 +16,7 @@ from django.conf import settings
 
 from flag import settings as flag_settings
 from flag.forms import FlagForm, FlagFormWithCreator, get_default_form
-from flag.models import add_flag, FlaggedContent
+from flag.models import FlaggedContent, FlagInstance
 from flag.exceptions import FlagException
 
 def _validate_next_parameter(request, next):
@@ -154,7 +154,7 @@ def flag(request):
 
             # add the flag, but check the user can do it
             try:
-                add_flag(request.user, content_type, object_pk, creator, comment)
+                FlagInstance.objects.add(request.user, content_object, creator, comment)
             except FlagException, e:
                 messages.error(request, unicode(e))
             else:

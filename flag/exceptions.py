@@ -1,4 +1,4 @@
-__all__ = ('FlagException', 'ModelCannotBeFlaggedException', 'ContentAlreadyFlaggedByUserException', 'ContentFlaggedEnoughException')
+__all__ = ('FlagException', 'ModelCannotBeFlaggedException', 'ContentAlreadyFlaggedByUserException', 'ContentFlaggedEnoughException', 'FlagCommentException')
 
 class FlagException(Exception):
     """
@@ -25,6 +25,13 @@ class ContentFlaggedEnoughException(FlagException):
     """
     Exception raised when someone try to flag an object which is
     already flagged and the LIMIT_FOR_OBJECT is raised
+    """
+    pass
+
+class FlagCommentException(FlagException):
+    """
+    Exception raised when someone try to add a comment while flagging an
+    object but with the ALLOW_COMMENTS settings to False (or the opposite)
     """
     pass
 

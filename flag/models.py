@@ -26,6 +26,22 @@ class FlaggedContentManager(models.Manager):
                 object_id=content_object.id
             )
 
+    def get_or_create_for_object(self, content_object, content_creator=None, status=None):
+        """
+        A wrapper around get_or_create to easily manage the fields
+        """
+        defaults = {}
+        if content_creator is not None:
+            defaults['creator'] = content_creator
+        if status is not None:
+            defaults['status'] = status
+        flagged_content, created = FlaggedContent.objects.get_or_create(
+            content_type = ContentType.objects.get_for_model(content_object),
+            object_id = content_object.id,
+            defaults = defaults
+        )
+        return flagged_content, created
+
     def model_can_be_flagged(self, content_type):
         """
         Return True if the model is listed in the MODELS settings (or if this
@@ -85,7 +101,7 @@ class FlaggedContent(models.Model):
     creator = models.ForeignKey(User, related_name="flagged_content", null=True, blank=True) # user who created flagged content -- this is kept in model so it outlives content
     status = models.CharField(max_length=1, choices=flag_settings.STATUS, default=flag_settings.STATUS[0][0])
     moderator = models.ForeignKey(User, null=True, related_name="moderated_content") # moderator responsible for last status change
-    count = models.PositiveIntegerField(default=1)
+    count = models.PositiveIntegerField(default=0)
 
     # manager
     objects = FlaggedContentManager()
@@ -166,6 +182,58 @@ class FlaggedContent(models.Model):
                 ), args=(self.object_id,)
             )
 
+    def save(self, *args, **kwargs):
+        """
+        Before the save, we check that we can flag this object
+        """
+
+        # check if we can flag this model
+        FlaggedContent.objects.assert_model_can_be_flagged(self.content_object)
+
+        super(FlaggedContent, self).save(*args, **kwargs)
+
+    def flag_added(self, flag_instance):
+        """
+        Called when a flag is added, to update the count and send a signal
+        """
+        # increment the count
+        self.count = models.F('count') + 1
+        self.save()
+
+        # update count of the current object
+        new_self = FlaggedContent.objects.get(id=self.id)
+        self.count = new_self.count
+
+        # send a signal
+        signals.content_flagged.send(
+            sender = FlaggedContent,
+            flagged_content = self,
+            flagged_instance = flag_instance,
+        )
+
+
+class FlagInstanceManager(models.Manager):
+    """
+    Manager for the FlagInstance model, adding a `add` method
+    """
+
+    def add(self, user, content_object, content_creator=None, comment=None, status=None):
+        """
+        Helper to easily create a flag of an object
+        """
+
+        # get or create the FlaggedContent object
+        flagged_content, created = FlaggedContent.objects.get_or_create_for_object(
+                content_object, content_creator, status)
+
+        # add the flag
+        flag_instance = FlagInstance.objects.create(
+            flagged_content = flagged_content,
+            user = user,
+            comment = comment
+        )
+
+        return flag_instance
 
 
 class FlagInstance(models.Model):
@@ -176,43 +244,35 @@ class FlagInstance(models.Model):
     when_recalled = models.DateTimeField(null=True) # if recalled at all
     comment = models.TextField(null=True, blank=True) # comment by the flagger
 
+    objects = FlagInstanceManager()
+
+    def save(self, *args, **kwargs):
+        """
+        Save the flag and, if it's a new one, tell it to the flagged_content.
+        Also check if set a comment is allowed
+        """
+        is_new = not bool(self.id)
+
+        # check if the user can flag this object
+        self.flagged_content.assert_can_be_flagged_by_user(self.user)
+
+        # check comments
+        if is_new:
+            if flag_settings.ALLOW_COMMENTS and not self.comment:
+                raise FlagCommentException(_('You must had a comment'))
+            if not flag_settings.ALLOW_COMMENTS and self.comment:
+                raise FlagCommentException(_('You are not allowed to add a comment'))
+
+        super(FlagInstance, self).save(*args, **kwargs)
+
+        # tell the flagged_content that it has a new flag
+        if is_new:
+            self.flagged_content.flag_added(self)
+
 
 def add_flag(flagger, content_type, object_id, content_creator, comment, status=None):
-
-    # check if we can flag this model
-    FlaggedContent.objects.assert_model_can_be_flagged(content_type)
-
-    # check if it's already been flagged
-    defaults = dict(creator=content_creator)
-    if status is not None:
-        defaults["status"] = status
-    flagged_content, created = FlaggedContent.objects.get_or_create(
-        content_type = content_type,
-        object_id = object_id,
-        defaults = defaults
-    )
-
-    # check if the current user can flag this object
-    flagged_content.assert_can_be_flagged_by_user(flagger)
-
-    if not created:
-        flagged_content.count = models.F("count") + 1
-        flagged_content.save()
-        # pull flagged_content from database to get count attribute filled
-        # properly (not the best way, but works)
-        flagged_content = FlaggedContent.objects.get(pk=flagged_content.pk)
-
-    flag_instance = FlagInstance(
-        flagged_content = flagged_content,
-        user = flagger,
-        comment = comment
-    )
-    flag_instance.save()
-
-    signals.content_flagged.send(
-        sender = FlaggedContent,
-        flagged_content = flagged_content,
-        flagged_instance = flag_instance,
-    )
-
-    return flag_instance
+    """
+    This function is here for compatibility
+    """
+    content_object = content_type.get_object_for_this_type(id=object_id)
+    return FlagInstance.objects.add_flag(flagged, content_object, content_creator, comment, status)
