@@ -68,11 +68,11 @@ class FlaggedContentManager(models.Manager):
         model = '%s.%s' % (app_label, model)
         return model in flag_settings.MODELS
 
-    def assert_model_can_be_flagged(self, content_type_id):
+    def assert_model_can_be_flagged(self, content_type):
         """
         Raise an acception if the "model_can_be_flagged" method return False
         """
-        if not self.model_can_be_flagged(content_type_id):
+        if not self.model_can_be_flagged(content_type):
             raise ModelCannotBeFlaggedException(_('This model cannot be flagged'))
 
 
