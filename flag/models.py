@@ -29,6 +29,7 @@ class FlaggedContentManager(models.Manager):
     def get_or_create_for_object(self, content_object, content_creator=None, status=None):
         """
         A wrapper around get_or_create to easily manage the fields
+        `content_creator` and `status` are only set when creating the object
         """
         defaults = {}
         if content_creator is not None:
@@ -220,6 +221,7 @@ class FlagInstanceManager(models.Manager):
     def add(self, user, content_object, content_creator=None, comment=None, status=None):
         """
         Helper to easily create a flag of an object
+        `content_creator` and `status` can only be set if it's the first flag
         """
 
         # get or create the FlaggedContent object
