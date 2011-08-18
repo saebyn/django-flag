@@ -14,7 +14,7 @@ from django.utils.html import escape
 
 from django.conf import settings
 
-from flag.settings import ALLOW_COMMENTS
+from flag import settings as flag_settings
 from flag.forms import FlagForm, FlagFormWithCreator, get_default_form
 from flag.models import add_flag, FlaggedContent
 from flag.exceptions import FlagException
@@ -147,7 +147,7 @@ def flag(request):
                         )
 
             # manage comment
-            if ALLOW_COMMENTS:
+            if flag_settings.ALLOW_COMMENTS:
                 comment = form.cleaned_data['comment']
             else:
                 comment = None

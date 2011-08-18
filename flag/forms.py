@@ -1,6 +1,6 @@
 from django import forms
 from django.utils.translation import ugettext_lazy as _
-from flag.settings import ALLOW_COMMENTS
+from flag import settings as flag_settings
 from django.contrib.comments.forms import CommentSecurityForm
 
 class FlagForm(CommentSecurityForm):
@@ -9,7 +9,7 @@ class FlagForm(CommentSecurityForm):
     We use CommentSecurityForm to add a security_hash, so the __init__ need
     the object to flag as the first (name `target_object`) parameter
     """
-    if ALLOW_COMMENTS:
+    if flag_settings.ALLOW_COMMENTS:
         comment = forms.CharField(widget=forms.Textarea(), label=_(u'Comment'))
 
 class FlagFormWithCreator(FlagForm):

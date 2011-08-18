@@ -7,7 +7,7 @@ from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 from django.utils.translation import ugettext_lazy as _, ungettext
 
-from flag.settings import *
+from flag import settings as flag_settings
 from flag import signals
 from flag.exceptions import *
 
@@ -33,7 +33,7 @@ class FlaggedContentManager(models.Manager):
         `content_type` can be : a ContentType id (as integer or string), a
         ContentType object, a string 'app_label.model_name', a model or an object
         """
-        if MODELS is None:
+        if flag_settings.MODELS is None:
             return True
 
         # try to find app and model from the content_type
@@ -66,7 +66,7 @@ class FlaggedContentManager(models.Manager):
 
         # finally we can check
         model = '%s.%s' % (app_label, model)
-        return model in MODELS
+        return model in flag_settings.MODELS
 
     def assert_model_can_be_flagged(self, content_type_id):
         """
@@ -83,7 +83,7 @@ class FlaggedContent(models.Model):
     content_object = generic.GenericForeignKey("content_type", "object_id")
 
     creator = models.ForeignKey(User, related_name="flagged_content", null=True, blank=True) # user who created flagged content -- this is kept in model so it outlives content
-    status = models.CharField(max_length=1, choices=STATUS, default=STATUS[0][0])
+    status = models.CharField(max_length=1, choices=flag_settings.STATUS, default=flag_settings.STATUS[0][0])
     moderator = models.ForeignKey(User, null=True, related_name="moderated_content") # moderator responsible for last status change
     count = models.PositiveIntegerField(default=1)
 
@@ -111,9 +111,9 @@ class FlaggedContent(models.Model):
         """
         Check that the LIMIT_FOR_OBJECT is not raised
         """
-        if not LIMIT_FOR_OBJECT:
+        if not flag_settings.LIMIT_FOR_OBJECT:
             return True
-        return self.count < LIMIT_FOR_OBJECT
+        return self.count < flag_settings.LIMIT_FOR_OBJECT
 
     def assert_can_be_flagged(self):
         """
@@ -121,17 +121,16 @@ class FlaggedContent(models.Model):
         """
         if not self.can_be_flagged():
             raise ContentFlaggedEnoughException(_('Flag limit raised'))
-        return True
 
     def can_be_flagged_by_user(self, user):
         """
         Check that the LIMIT_SAME_OBJECT_FOR_USER is not raised for this user
         """
-        if not LIMIT_SAME_OBJECT_FOR_USER:
+        if not flag_settings.LIMIT_SAME_OBJECT_FOR_USER:
             return True
         if not self.can_be_flagged():
             return False
-        return self.count_flags_by_user(user) < LIMIT_SAME_OBJECT_FOR_USER
+        return self.count_flags_by_user(user) < flag_settings.LIMIT_SAME_OBJECT_FOR_USER
 
     def assert_can_be_flagged_by_user(self, user):
         """
@@ -144,7 +143,7 @@ class FlaggedContent(models.Model):
         else:
             # do not use self.can_be_flagged_by_user because we need the count
             count = self.count_flags_by_user(user)
-            if count >= LIMIT_SAME_OBJECT_FOR_USER:
+            if count >= flag_settings.LIMIT_SAME_OBJECT_FOR_USER:
                 error = ungettext(
                             'You already flagged this',
                             'You already flagged this %(count)d times',
