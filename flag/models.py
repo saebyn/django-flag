@@ -256,7 +256,7 @@ class FlagInstance(models.Model):
         # check if the user can flag this object
         self.flagged_content.assert_can_be_flagged_by_user(self.user)
 
-        # check comments
+        # check comment
         if is_new:
             if flag_settings.ALLOW_COMMENTS and not self.comment:
                 raise FlagCommentException(_('You must had a comment'))

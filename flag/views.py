@@ -71,7 +71,7 @@ def get_content_object(ctype, object_pk):
     """
     Given a content type ("app_name.model_name") and an object's pk, try to
     return the mathcing object
-    (taken from django.contrib.comments.views.comments.post_comment)
+    (based on django.contrib.comments.views.comments.post_comment)
     """
     if ctype is None or object_pk is None:
         return FlagPostBadRequest("Missing content_type or object_pk field.")
