@@ -277,19 +277,6 @@ class FlagModelsTestCase(BaseTestCase):
         self.assertEqual(flagged_content.can_be_flagged_by_user(self.user), True)
         self.assertNotRaises(flagged_content.assert_can_be_flagged_by_user, self.user)
 
-    def test_count_flags_by_user(self):
-        """
-        Test if the count_flag_by_users is correct
-        """
-        flagged_content = self._add_flagged_content(self.model_without_author)
-
-        self.assertEqual(flagged_content.count_flags_by_user(self.user), 0)
-        self._add_flag(flagged_content, 'comment')
-        self.assertEqual(flagged_content.count_flags_by_user(self.user), 1)
-        for i in range(0, 9):
-            self._add_flag(flagged_content, 'comment')
-        self.assertEqual(flagged_content.count_flags_by_user(self.user), 10)
-
     def test_add_too_much_flags_for_user(self):
         """
         Try to add flags to objects regarding the LIMIT_SAME_OBJECT_FOR_USER settings)
