@@ -115,23 +115,23 @@ class FlagModelsTestCase(BaseTestCase):
         """
         # default setting : all models can be flagged
         flag_settings.MODELS = None
-        self.assertEqual(
-            FlaggedContent.objects.model_can_be_flagged(self.model_without_author), True)
+        self.assertTrue(
+            FlaggedContent.objects.model_can_be_flagged(self.model_without_author))
         self.assertNotRaises(
             FlaggedContent.objects.assert_model_can_be_flagged, self.model_without_author)
-        self.assertEqual(
-            FlaggedContent.objects.model_can_be_flagged(self.model_with_author), True)
+        self.assertTrue(
+            FlaggedContent.objects.model_can_be_flagged(self.model_with_author))
         self.assertNotRaises(
             FlaggedContent.objects.assert_model_can_be_flagged, self.model_with_author)
 
         # only one model can be flagged
         flag_settings.MODELS = ('tests.modelwithauthor',)
-        self.assertEqual(
-            FlaggedContent.objects.model_can_be_flagged(self.model_without_author), False)
+        self.assertFalse(
+            FlaggedContent.objects.model_can_be_flagged(self.model_without_author))
         self.assertRaises(ModelCannotBeFlaggedException,
             FlaggedContent.objects.assert_model_can_be_flagged, self.model_without_author)
-        self.assertEqual(
-            FlaggedContent.objects.model_can_be_flagged(self.model_with_author), True)
+        self.assertTrue(
+            FlaggedContent.objects.model_can_be_flagged(self.model_with_author))
         self.assertNotRaises(
             FlaggedContent.objects.assert_model_can_be_flagged, self.model_with_author)
 
@@ -180,37 +180,37 @@ class FlagModelsTestCase(BaseTestCase):
         flagged_content.count = 1
 
         flag_settings.LIMIT_FOR_OBJECT = 0
-        self.assertEqual(flagged_content.can_be_flagged(), True)
+        self.assertTrue(flagged_content.can_be_flagged())
         self.assertNotRaises(flagged_content.assert_can_be_flagged)
 
         flag_settings.LIMIT_FOR_OBJECT = 1
-        self.assertEqual(flagged_content.can_be_flagged(), False)
+        self.assertFalse(flagged_content.can_be_flagged())
         self.assertRaises(ContentFlaggedEnoughException,
             flagged_content.assert_can_be_flagged)
 
         flag_settings.LIMIT_FOR_OBJECT = 2
-        self.assertEqual(flagged_content.can_be_flagged(), True)
+        self.assertTrue(flagged_content.can_be_flagged())
         self.assertNotRaises(flagged_content.assert_can_be_flagged)
 
         # test with count=10
         flagged_content.count = 10
 
         flag_settings.LIMIT_FOR_OBJECT = 0
-        self.assertEqual(flagged_content.can_be_flagged(), True)
+        self.assertTrue(flagged_content.can_be_flagged())
         self.assertNotRaises(flagged_content.assert_can_be_flagged)
 
         flag_settings.LIMIT_FOR_OBJECT = 1
-        self.assertEqual(flagged_content.can_be_flagged(), False)
+        self.assertFalse(flagged_content.can_be_flagged())
         self.assertRaises(ContentFlaggedEnoughException,
             flagged_content.assert_can_be_flagged)
 
         flag_settings.LIMIT_FOR_OBJECT = 10
-        self.assertEqual(flagged_content.can_be_flagged(), False)
+        self.assertFalse(flagged_content.can_be_flagged())
         self.assertRaises(ContentFlaggedEnoughException,
             flagged_content.assert_can_be_flagged)
 
         flag_settings.LIMIT_FOR_OBJECT = 20
-        self.assertEqual(flagged_content.can_be_flagged(), True)
+        self.assertTrue(flagged_content.can_be_flagged())
         self.assertNotRaises(flagged_content.assert_can_be_flagged)
 
     def test_add_too_much_flags(self):
@@ -243,16 +243,16 @@ class FlagModelsTestCase(BaseTestCase):
         self._add_flag(flagged_content, 'comment')
 
         flag_settings.LIMIT_SAME_OBJECT_FOR_USER = 0
-        self.assertEqual(flagged_content.can_be_flagged_by_user(self.user), True)
+        self.assertTrue(flagged_content.can_be_flagged_by_user(self.user))
         self.assertNotRaises(flagged_content.assert_can_be_flagged_by_user, self.user)
 
         flag_settings.LIMIT_SAME_OBJECT_FOR_USER = 1
-        self.assertEqual(flagged_content.can_be_flagged_by_user(self.user), False)
+        self.assertFalse(flagged_content.can_be_flagged_by_user(self.user))
         self.assertRaises(ContentAlreadyFlaggedByUserException,
             flagged_content.assert_can_be_flagged_by_user, self.user)
 
         flag_settings.LIMIT_SAME_OBJECT_FOR_USER = 2
-        self.assertEqual(flagged_content.can_be_flagged_by_user(self.user), True)
+        self.assertTrue(flagged_content.can_be_flagged_by_user(self.user))
         self.assertNotRaises(flagged_content.assert_can_be_flagged_by_user, self.user)
 
         # test with 10 flags
@@ -260,21 +260,21 @@ class FlagModelsTestCase(BaseTestCase):
         for i in range(0, 9):
             self._add_flag(flagged_content, 'comment')
 
-        self.assertEqual(flagged_content.can_be_flagged_by_user(self.user), True)
+        self.assertTrue(flagged_content.can_be_flagged_by_user(self.user))
         self.assertNotRaises(flagged_content.assert_can_be_flagged_by_user, self.user)
 
         flag_settings.LIMIT_SAME_OBJECT_FOR_USER = 1
-        self.assertEqual(flagged_content.can_be_flagged_by_user(self.user), False)
+        self.assertFalse(flagged_content.can_be_flagged_by_user(self.user))
         self.assertRaises(ContentAlreadyFlaggedByUserException,
             flagged_content.assert_can_be_flagged_by_user, self.user)
 
         flag_settings.LIMIT_SAME_OBJECT_FOR_USER = 10
-        self.assertEqual(flagged_content.can_be_flagged_by_user(self.user), False)
+        self.assertFalse(flagged_content.can_be_flagged_by_user(self.user))
         self.assertRaises(ContentAlreadyFlaggedByUserException,
             flagged_content.assert_can_be_flagged_by_user, self.user)
 
         flag_settings.LIMIT_SAME_OBJECT_FOR_USER = 20
-        self.assertEqual(flagged_content.can_be_flagged_by_user(self.user), True)
+        self.assertTrue(flagged_content.can_be_flagged_by_user(self.user))
         self.assertNotRaises(flagged_content.assert_can_be_flagged_by_user, self.user)
 
     def test_add_too_much_flags_for_user(self):
