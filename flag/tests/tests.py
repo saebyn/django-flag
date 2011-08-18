@@ -1,6 +1,6 @@
 from datetime import datetime
 from django.utils import unittest
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User, AnonymousUser
 from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError
 
@@ -9,6 +9,7 @@ from flag.tests.models import ModelWithoutAuthor, ModelWithAuthor
 from flag import settings as flag_settings
 from flag.exceptions import *
 from flag.signals import content_flagged
+from flag.templatetags import flag_tags
 
 class BaseTestCase(unittest.TestCase):
     """
@@ -78,14 +79,13 @@ class BaseTestCase(unittest.TestCase):
         """
         FlagInstance.objects.all().delete()
 
-
-class FlagModelsTestCase(BaseTestCase):
+class BaseTestCaseWithData(BaseTestCase):
 
     def setUp(self):
         """
         Add a user which will make the flags, and two flaggable objects
         """
-        super(FlagModelsTestCase, self).setUp()
+        super(BaseTestCaseWithData, self).setUp()
 
         # flagger
         self.user = User.objects.create(username='test', email='test@example.com', password='test')
@@ -106,7 +106,13 @@ class FlagModelsTestCase(BaseTestCase):
         ModelWithAuthor.objects.all().delete()
         User.objects.all().delete()
 
-        super(FlagModelsTestCase, self).tearDown()
+        super(BaseTestCaseWithData, self).tearDown()
+
+
+class ModelsTestCase(BaseTestCaseWithData):
+    """
+    Class to test the wo models, combined with settings
+    """
 
 
     def test_model_can_be_flagged(self):
@@ -388,5 +394,81 @@ class FlagModelsTestCase(BaseTestCase):
         self.assertRaises(AttributeError, getattr, self, 'signal_received')
 
         clear_received_signal()
+
+
+
+class FlagTemplateTagsTestCase(BaseTestCaseWithData):
+    """
+    Class to test all template tags
+    """
+
+    def test_flag_count(self):
+        """
+        Test the `flag_count` templatetag
+        """
+        # no tags
+        self.assertEqual(flag_tags.flag_count(self.model_with_author), 0)
+
+        # add a flagged content
+        flagged_content = self._add_flagged_content(self.model_with_author)
+        self.assertEqual(flag_tags.flag_count(self.model_with_author), 0)
+
+        # add a tag
+        self._add_flag(flagged_content, comment='comment')
+        self.assertEqual(flag_tags.flag_count(self.model_with_author), 1)
+
+        # and another
+        self._add_flag(flagged_content, comment='comment')
+        self.assertEqual(flag_tags.flag_count(self.model_with_author), 2)
+
+    def test_flag_status(self):
+        """
+        Test the `flat_status` templatetag
+        """
+        # no tags
+        self.assertEqual(flag_tags.flag_status(self.model_with_author), None)
+
+        # add a tag
+        flagged_content = self._add_flagged_content(self.model_with_author)
+        self._add_flag(flagged_content, comment='comment')
+        self.assertEqual(flag_tags.flag_status(self.model_with_author), flag_settings.STATUS[0][0])
+
+        # change the status
+        flagged_content.status = flag_settings.STATUS[1][0]
+        flagged_content.save()
+        self.assertEqual(flag_tags.flag_status(self.model_with_author), flag_settings.STATUS[1][0])
+
+    def test_can_be_flagged_by(self):
+        """
+        Test the `can_be_flagged_by` templatetag
+        """
+        def add():
+            return FlagInstance.objects.add(self.user, self.model_with_author, comment='comment')
+
+        # anonymous user can't
+        anonymous = AnonymousUser()
+        self.assertFalse(flag_tags.can_be_flagged_by(self.model_with_author, anonymous))
+
+        # normal user can
+        self.assertTrue(flag_tags.can_be_flagged_by(self.model_with_author, self.user))
+
+        # but not on not allowed models
+        flag_settings.MODELS = ('tests.modelwithauthor',)
+        self.assertFalse(flag_tags.can_be_flagged_by(self.model_without_author, self.user))
+
+        # test when limits are raised
+
+        flag_settings.LIMIT_FOR_OBJECT = 5
+        for i in range(0, 4):
+            add()
+        self.assertTrue(flag_tags.can_be_flagged_by(self.model_with_author, self.user))
+        add()
+        self.assertFalse(flag_tags.can_be_flagged_by(self.model_with_author, self.user))
+
+        flag_settings.LIMIT_FOR_OBJECT = 0
+        flag_settings.LIMIT_SAME_OBJECT_FOR_USER = 6
+        self.assertTrue(flag_tags.can_be_flagged_by(self.model_with_author, self.user))
+        add()
+        self.assertFalse(flag_tags.can_be_flagged_by(self.model_with_author, self.user))
 
 
