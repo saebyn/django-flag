@@ -6,6 +6,7 @@ from django.db import IntegrityError
 from django.core.management import call_command
 from django.db.models import loading
 from django.conf import settings
+from django.core.urlresolvers import reverse
 
 from flag.models import FlaggedContent, FlagInstance
 from flag.tests.models import ModelWithoutAuthor, ModelWithAuthor
@@ -13,6 +14,7 @@ from flag import settings as flag_settings
 from flag.exceptions import *
 from flag.signals import content_flagged
 from flag.templatetags import flag_tags
+from flag.forms import FlagForm
 
 
 class BaseTestCase(TestCase):
@@ -21,21 +23,33 @@ class BaseTestCase(TestCase):
     helper to easily create flags
     """
 
-    apps=[
+    test_apps = [
         'django.contrib.auth',
         'django.contrib.messages',
         'django.contrib.contenttypes',
         'flag',
         'flag.tests',
     ]
+    test_settings = dict(
+        ROOT_URLCONF = 'urls',
+    )
 
     def _pre_setup(self):
         """
-        Add the test models to the db.
+        Add the test models to the db and other settings
         """
+
+        # manage settings
+        self._original_settings = {}
+        for key in self.test_settings:
+            if hasattr(settings, key):
+                self._original_settings[key] = getattr(settings, key)
+            setattr(settings, key, self.test_settings[key])
+
+        # manage new apps
         self._original_installed_apps = settings.INSTALLED_APPS
 
-        apps = [app for app in self.apps if app not in settings.INSTALLED_APPS]
+        apps = [app for app in self.test_apps if app not in settings.INSTALLED_APPS]
 
         settings.INSTALLED_APPS = tuple(
             list(self._original_installed_apps) + list(apps))
@@ -53,24 +67,30 @@ class BaseTestCase(TestCase):
         # Call the original method.
         super(BaseTestCase, self)._post_teardown()
 
-        # Restore the settings.
+        # Restore the apps
         settings.INSTALLED_APPS = self._original_installed_apps
         loading.cache.loaded = False
+        self._original_installed_apps = ()
+
+        # restore settings
+        for key in self._original_settings:
+            setattr(settings, key, self._original_settings[key])
+        self._original_settings = {}
 
     def setUp(self):
         """
-        Save old settings and set them to default
+        Save old flag settings and set them to default
         """
         super(BaseTestCase, self).setUp()
-        self.old_settings = dict((key, getattr(flag_settings, key)) for key in flag_settings.__all__)
+        self._original_flag_settings = dict((key, getattr(flag_settings, key)) for key in flag_settings.__all__)
         for key in flag_settings.__all__:
             setattr(flag_settings, key, flag_settings._DEFAULTS[key])
 
     def tearDown(self):
         """
-        Restore old settings
+        Restore old flag settings
         """
-        for key, value in self.old_settings.items():
+        for key, value in self._original_flag_settings.items():
             setattr(flag_settings, key, value)
         super(BaseTestCase, self).tearDown()
 
@@ -446,12 +466,12 @@ class ModelsTestCase(BaseTestCaseWithData):
 
 class FlagTemplateTagsTestCase(BaseTestCaseWithData):
     """
-    Class to test all template tags
+    Class to test all template tags and filters
     """
 
     def test_flag_count(self):
         """
-        Test the `flag_count` templatetag
+        Test the `flag_count` filter
         """
         # no tags
         self.assertEqual(flag_tags.flag_count(self.model_with_author), 0)
@@ -470,7 +490,7 @@ class FlagTemplateTagsTestCase(BaseTestCaseWithData):
 
     def test_flag_status(self):
         """
-        Test the `flat_status` templatetag
+        Test the `flat_status` filter
         """
         # no tags
         self.assertEqual(flag_tags.flag_status(self.model_with_author), None)
@@ -487,7 +507,7 @@ class FlagTemplateTagsTestCase(BaseTestCaseWithData):
 
     def test_can_be_flagged_by(self):
         """
-        Test the `can_be_flagged_by` templatetag
+        Test the `can_be_flagged_by` filter
         """
         def add():
             return FlagInstance.objects.add(self.user, self.model_with_author, comment='comment')
@@ -518,4 +538,43 @@ class FlagTemplateTagsTestCase(BaseTestCaseWithData):
         add()
         self.assertFalse(flag_tags.can_be_flagged_by(self.model_with_author, self.user))
 
+    def test_flag_confirm_url(self):
+        """
+        Test the `flag_confirm_url` filter (and also urls btw)
+        """
+        # no object
+        self.assertEqual(flag_tags.flag_confirm_url(None), "")
 
+        # an existing object without author
+        wanted_url = reverse('flag_confirm', kwargs=dict(
+                app_label = self.model_without_author._meta.app_label,
+                object_name = self.model_without_author._meta.module_name,
+                object_id = self.model_without_author.id,
+            ))
+        self.assertEqual(wanted_url, '/flag/tests/modelwithoutauthor/%d/' % self.model_without_author.id)
+        self.assertEqual(flag_tags.flag_confirm_url(self.model_without_author), wanted_url)
+
+        # an existing object with author
+        wanted_url = reverse('flag_confirm', kwargs=dict(
+                app_label = self.model_with_author._meta.app_label,
+                object_name = self.model_with_author._meta.module_name,
+                object_id = self.model_with_author.id,
+                creator_field = 'author',
+            ))
+        self.assertEqual(wanted_url, '/flag/tests/modelwithauthor/%d/author/' % self.model_with_author.id)
+        self.assertEqual(flag_tags.flag_confirm_url(self.model_with_author, 'author'), wanted_url)
+
+    def test_flag(self):
+        """
+        Test the `flag` templatetag
+        """
+        # no object
+        self.assertEqual(flag_tags.flag({}, None), {})
+
+        # an existing object
+        result = flag_tags.flag({}, self.model_without_author)
+        self.assertEqual(len(result), 2)
+        self.assertTrue('next' in result)
+        self.assertTrue('flag_form' in result)
+        self.assertEqual(result['next'], None)
+        self.assertTrue(isinstance(result['flag_form'], FlagForm)) # do not test form here
