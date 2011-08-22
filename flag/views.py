@@ -33,11 +33,13 @@ def get_next(request):
     Find the next url to redirect the user to
     Taken from https://github.com/ericflo/django-avatar/blob/master/avatar/views.py
     """
-    next = request.POST.get('next', request.GET.get('next', request.META.get('HTTP_REFERER', None)))
+    next = getattr(request, 'POST', {}).get('next',
+                getattr(request, 'GET', {}).get('next',
+                    getattr(request, 'META', {}).get('HTTP_REFERER', None)))
     if next:
         next = _validate_next_parameter(request, next)
     if not next:
-        next = request.path
+        next = getattr(request, 'path', None)
     return next
 
 class FlagPostBadRequest(HttpResponseBadRequest):
@@ -55,6 +57,7 @@ class FlagPostBadRequest(HttpResponseBadRequest):
 def get_confirm_url_for_object(content_object, creator_field=None):
     """
     Return the url to the flag confirm page for the given object
+    TODO : raise if the object cannot be flaaged ?
     """
     url_params = dict(
             app_label = content_object._meta.app_label,
