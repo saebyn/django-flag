@@ -10,10 +10,12 @@ register = template.Library()
 
 @register.inclusion_tag("flag/flag_form.html", takes_context=True)
 def flag(context, content_object, creator_field=None):
-    request = context['request']
+    if not content_object:
+        return {}
+    request = context.get('request', None)
     form = get_default_form(content_object, creator_field)
     return dict(
-            form = form,
+            flag_form = form,
             next = get_next(request)
         )
 

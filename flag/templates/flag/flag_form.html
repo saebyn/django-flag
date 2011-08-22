@@ -1,6 +1,8 @@
+{% if flag_form %}
 <form method="POST" action="{% url flag %}">
     {% csrf_token %}
-    {{ form.as_p }}
+    {{ flag_form.as_p }}
     {% if next %}<input type="hidden" name="next" value="{{ next }}{% endif %}" />
     <input type="submit" value="Submit Flag" /></td>
 </form>
+{% endif %}
