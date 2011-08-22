@@ -3,32 +3,41 @@ from django.utils.translation import ugettext_lazy as _
 
 __all__ = ('ALLOW_COMMENTS', 'LIMIT_SAME_OBJECT_FOR_USER', 'LIMIT_FOR_OBJECT', 'MODELS', 'STATUS')
 
+# keep the default values
+_DEFAULTS = dict(
+    ALLOW_COMMENTS = True,
+    LIMIT_SAME_OBJECT_FOR_USER = 0,
+    LIMIT_FOR_OBJECT = 0,
+    MODELS = None,
+    STATUS = [
+        ("1", _("flagged")),
+        ("2", _("flag rejected by moderator")),
+        ("3", _("creator notified")),
+        ("4", _("content removed by creator")),
+        ("5", _("content removed by moderator")),
+    ],
+)
+
 # Set FLAG_ALLOW_COMMENTS to False in settings to not allow users to
 # comment their flags (True by default)
-ALLOW_COMMENTS = getattr(conf.settings, 'FLAG_ALLOW_COMMENTS', True)
+ALLOW_COMMENTS = getattr(conf.settings, 'FLAG_ALLOW_COMMENTS', _DEFAULTS['ALLOW_COMMENTS'])
 
 # Set FLAG_LIMIT_SAME_OBJECT_FOR_USER to a number in settings to limit the times
 # a user can flag a single object
 # If 0, there is no limit
-LIMIT_SAME_OBJECT_FOR_USER = getattr(conf.settings, 'FLAG_LIMIT_SAME_OBJECT_FOR_USER', 0)
+LIMIT_SAME_OBJECT_FOR_USER = getattr(conf.settings, 'FLAG_LIMIT_SAME_OBJECT_FOR_USER', _DEFAULTS['LIMIT_SAME_OBJECT_FOR_USER'])
 
 # Set FLAG_LIMIT_FOR_OBJECT to a number in settings to limit the times an
 # object can be flagged
 # If 0, there is no limit
-LIMIT_FOR_OBJECT = getattr(conf.settings, 'FLAG_LIMIT_FOR_OBJECT', 0)
+LIMIT_FOR_OBJECT = getattr(conf.settings, 'FLAG_LIMIT_FOR_OBJECT', _DEFAULTS['LIMIT_FOR_OBJECT'])
 
 # Set FLAG_MODELS to a list/tuple of models in your settings to limit the
 # models that can be flagged. The syntax to use is a string for each model :
 # FLAG_MODELS = ('myapp.mymodel', 'otherapp.othermodel',)
-MODELS = getattr(conf.settings, 'FLAG_MODELS', None)
+MODELS = getattr(conf.settings, 'FLAG_MODELS', _DEFAULTS['MODELS'])
 
 # Set FLAG_STATUSES to a list of tuples in your settings to set the available
 # status for each flagged content
 # The default status used when a user flag an object is the first of this list.
-STATUS = getattr(conf.settings, "FLAG_STATUSES", [
-    ("1", _("flagged")),
-    ("2", _("flag rejected by moderator")),
-    ("3", _("creator notified")),
-    ("4", _("content removed by creator")),
-    ("5", _("content removed by moderator")),
-])
+STATUS = getattr(conf.settings, "FLAG_STATUSES", _DEFAULTS['STATUS'])

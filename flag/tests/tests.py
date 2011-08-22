@@ -1,8 +1,11 @@
 from datetime import datetime
-from django.utils import unittest
+from django.test import TestCase
 from django.contrib.auth.models import User, AnonymousUser
 from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError
+from django.core.management import call_command
+from django.db.models import loading
+from django.conf import settings
 
 from flag.models import FlaggedContent, FlagInstance
 from flag.tests.models import ModelWithoutAuthor, ModelWithAuthor
@@ -11,11 +14,48 @@ from flag.exceptions import *
 from flag.signals import content_flagged
 from flag.templatetags import flag_tags
 
-class BaseTestCase(unittest.TestCase):
+
+class BaseTestCase(TestCase):
     """
     Base test class to save old flag settings, remove them, and add some
     helper to easily create flags
     """
+
+    apps=[
+        'django.contrib.auth',
+        'django.contrib.messages',
+        'django.contrib.contenttypes',
+        'flag',
+        'flag.tests',
+    ]
+
+    def _pre_setup(self):
+        """
+        Add the test models to the db.
+        """
+        self._original_installed_apps = settings.INSTALLED_APPS
+
+        apps = [app for app in self.apps if app not in settings.INSTALLED_APPS]
+
+        settings.INSTALLED_APPS = tuple(
+            list(self._original_installed_apps) + list(apps))
+
+        loading.cache.loaded = False
+        call_command('syncdb', interactive=False, verbosity=0)
+
+        # Call the original method that does the fixtures etc.
+        super(BaseTestCase, self)._pre_setup()
+
+    def _post_teardown(self):
+        """
+        Restore old INSTALLED_APPS
+        """
+        # Call the original method.
+        super(BaseTestCase, self)._post_teardown()
+
+        # Restore the settings.
+        settings.INSTALLED_APPS = self._original_installed_apps
+        loading.cache.loaded = False
 
     def setUp(self):
         """
@@ -23,6 +63,8 @@ class BaseTestCase(unittest.TestCase):
         """
         super(BaseTestCase, self).setUp()
         self.old_settings = dict((key, getattr(flag_settings, key)) for key in flag_settings.__all__)
+        for key in flag_settings.__all__:
+            setattr(flag_settings, key, flag_settings._DEFAULTS[key])
 
     def tearDown(self):
         """
@@ -81,6 +123,8 @@ class BaseTestCase(unittest.TestCase):
 
 class BaseTestCaseWithData(BaseTestCase):
 
+    USER_BASE = 'test-django-flat'
+
     def setUp(self):
         """
         Add a user which will make the flags, and two flaggable objects
@@ -88,9 +132,9 @@ class BaseTestCaseWithData(BaseTestCase):
         super(BaseTestCaseWithData, self).setUp()
 
         # flagger
-        self.user = User.objects.create(username='test', email='test@example.com', password='test')
+        self.user = User.objects.create(username='%s-1' % self.USER_BASE, email='%s-1@example.com' % self.USER_BASE, password=self.USER_BASE)
         # author of objects
-        self.author = User.objects.create(username='author', email='author@exanple.com', password='author')
+        self.author = User.objects.create(username='%s-2' % self.USER_BASE, email='%s-2@exanple.com' % self.USER_BASE, password=self.USER_BASE)
         # model without author
         self.model_without_author = ModelWithoutAuthor.objects.create(name='foo')
         # model with author
@@ -104,7 +148,8 @@ class BaseTestCaseWithData(BaseTestCase):
         self._delete_flagged_contents()
         ModelWithoutAuthor.objects.all().delete()
         ModelWithAuthor.objects.all().delete()
-        User.objects.all().delete()
+        self.user.delete()
+        self.author.delete()
 
         super(BaseTestCaseWithData, self).tearDown()
 
@@ -290,7 +335,7 @@ class ModelsTestCase(BaseTestCaseWithData):
         def add(user):
             return FlagInstance.objects.add(user, self.model_without_author, comment='comment')
 
-        user2 = User.objects.create(username='test2', email='test2@example.com', password='test2')
+        user2 = User.objects.create(username='%s-3' % self.USER_BASE, email='%s-2@example.com' % self.USER_BASE, password=self.USER_BASE)
 
         # test without limit
         for i in range(0, 5):
@@ -309,6 +354,8 @@ class ModelsTestCase(BaseTestCaseWithData):
             self.assertNotRaises(add, user2)
         #... until the max
         self.assertRaises(ContentAlreadyFlaggedByUserException, add, user2)
+
+        user2.delete()
 
     def test_comments(self):
         """
