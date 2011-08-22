@@ -1,4 +1,7 @@
 from datetime import datetime
+from copy import copy
+import time
+
 from django.test import TestCase
 from django.contrib.auth.models import User, AnonymousUser
 from django.contrib.contenttypes.models import ContentType
@@ -14,7 +17,7 @@ from flag import settings as flag_settings
 from flag.exceptions import *
 from flag.signals import content_flagged
 from flag.templatetags import flag_tags
-from flag.forms import FlagForm
+from flag.forms import FlagForm, FlagFormWithCreator, get_default_form
 
 
 class BaseTestCase(TestCase):
@@ -578,3 +581,79 @@ class FlagTemplateTagsTestCase(BaseTestCaseWithData):
         self.assertTrue('flag_form' in result)
         self.assertEqual(result['next'], None)
         self.assertTrue(isinstance(result['flag_form'], FlagForm)) # do not test form here
+
+
+class FlagFormTestCase(BaseTestCaseWithData):
+    """
+    Class to test the flag form
+    """
+
+    def test_create_form(self):
+        """
+        Test the creation of the form
+        """
+        flag_settings.ALLOW_COMMENTS = False
+
+        form = get_default_form(self.model_without_author)
+
+        # check the used form
+        self.assertTrue(isinstance(form, FlagForm))
+        self.assertFalse(isinstance(form, FlagFormWithCreator))
+
+        # check data
+        self.assertEqual(form['object_pk'].value(),
+            str(self.model_without_author.id))
+        self.assertEqual(form['content_type'].value(), '%s.%s' % (
+            self.model_without_author._meta.app_label,
+            self.model_without_author._meta.module_name))
+
+        # check security
+        self.assertTrue('timestamp' in form.fields)
+        self.assertTrue('security_hash' in form.fields)
+
+        # check with_author
+        form = get_default_form(self.model_with_author, 'author')
+        self.assertTrue(isinstance(form, FlagFormWithCreator))
+        self.assertEqual(form['creator_field'].value(), 'author')
+
+    def _get_form_data(self, obj, creator_field=None):
+        """
+        Helper to get some data for the form
+        """
+        form = get_default_form(obj, creator_field)
+        data = dict((key, form[key].value()) for key in form.fields)
+        data['csrf_token'] = None
+        data['comment'] = 'comment'
+        return data
+
+    def test_validate_form(self):
+        """
+        Test the validation of the form
+        """
+        # get default form data
+        form_data = self._get_form_data(self.model_without_author)
+
+        # test valid form
+        form = FlagForm(self.model_without_author, copy(form_data))
+        self.assertTrue(form.is_valid())
+
+        # test bad security hash
+        data = copy(form_data)
+        data['security_hash'] = 'zz' + data['security_hash'][2:]
+        form = FlagForm(self.model_without_author, data)
+        self.assertFalse(form.is_valid())
+        self.assertEqual(len(form['security_hash'].errors), 1)
+
+        # test bad timestamp
+        data = copy(form_data)
+        data['timestamp'] = str(time.time() + (3 * 60 * 60))
+        form = FlagForm(self.model_without_author, data)
+        self.assertFalse(form.is_valid())
+        self.assertEqual(len(form['timestamp'].errors), 1)
+
+        # test missing comment
+        data = copy(form_data)
+        data['comment'] = ''
+        form = FlagForm(self.model_without_author, data)
+        self.assertFalse(form.is_valid())
+
