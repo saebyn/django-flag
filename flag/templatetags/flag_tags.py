@@ -15,7 +15,7 @@ def flag(context, content_object, creator_field=None):
     request = context.get('request', None)
     form = get_default_form(content_object, creator_field)
     return dict(
-            flag_form = form,
+            form = form,
             next = get_next(request)
         )
 

@@ -655,9 +655,9 @@ class FlagTemplateTagsTestCase(BaseTestCaseWithData):
         result = flag_tags.flag({}, self.model_without_author)
         self.assertEqual(len(result), 2)
         self.assertTrue('next' in result)
-        self.assertTrue('flag_form' in result)
+        self.assertTrue('form' in result)
         self.assertEqual(result['next'], None)
-        self.assertTrue(isinstance(result['flag_form'], FlagForm)) # do not test form here
+        self.assertTrue(isinstance(result['form'], FlagForm)) # do not test form here
 
 
 class FlagFormTestCase(BaseTestCaseWithData):
