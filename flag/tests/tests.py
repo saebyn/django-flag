@@ -10,14 +10,17 @@ from django.core.management import call_command
 from django.db.models import loading, ObjectDoesNotExist
 from django.conf import settings
 from django.core.urlresolvers import reverse
+from django.http import HttpResponseRedirect
+from django.contrib import messages
 
-from flag.models import FlaggedContent, FlagInstance
+from flag.models import FlaggedContent, FlagInstance, add_flag
 from flag.tests.models import ModelWithoutAuthor, ModelWithAuthor
 from flag import settings as flag_settings
 from flag.exceptions import *
 from flag.signals import content_flagged
 from flag.templatetags import flag_tags
 from flag.forms import FlagForm, FlagFormWithCreator, get_default_form
+from flag.views import get_confirm_url_for_object, get_content_object, FlagBadRequest
 
 
 class BaseTestCase(TestCase):
@@ -37,6 +40,8 @@ class BaseTestCase(TestCase):
 
     test_settings = dict(
         ROOT_URLCONF = 'urls',
+        DEBUG = settings.DEBUG, # used when swapping the debug mode
+
     )
 
     def _pre_setup(self):
@@ -156,9 +161,9 @@ class BaseTestCaseWithData(BaseTestCase):
         super(BaseTestCaseWithData, self).setUp()
 
         # flagger
-        self.user = User.objects.create(username='%s-1' % self.USER_BASE, email='%s-1@example.com' % self.USER_BASE, password=self.USER_BASE)
+        self.user = User.objects.create_user(username='%s-1' % self.USER_BASE, email='%s-1@example.com' % self.USER_BASE, password=self.USER_BASE)
         # author of objects
-        self.author = User.objects.create(username='%s-2' % self.USER_BASE, email='%s-2@exanple.com' % self.USER_BASE, password=self.USER_BASE)
+        self.author = User.objects.create_user(username='%s-2' % self.USER_BASE, email='%s-2@exanple.com' % self.USER_BASE, password=self.USER_BASE)
         # model without author
         self.model_without_author = ModelWithoutAuthor.objects.create(name='foo')
         # model with author
@@ -386,7 +391,7 @@ class ModelsTestCase(BaseTestCaseWithData):
         def add(user):
             return FlagInstance.objects.add(user, self.model_without_author, comment='comment')
 
-        user2 = User.objects.create(username='%s-3' % self.USER_BASE, email='%s-2@example.com' % self.USER_BASE, password=self.USER_BASE)
+        user2 = User.objects.create_user(username='%s-3' % self.USER_BASE, email='%s-2@example.com' % self.USER_BASE, password=self.USER_BASE)
 
         # test without limit
         for i in range(0, 5):
@@ -697,10 +702,6 @@ class FlagFormTestCase(BaseTestCaseWithData):
         """
         Helper to get some data for the form
         """
-        form = get_default_form(obj, creator_field)
-        data = dict((key, form[key].value()) for key in form.fields)
-        data['csrf_token'] = None
-        data['comment'] = 'comment'
         return data
 
     def test_validate_form(self):
@@ -708,7 +709,12 @@ class FlagFormTestCase(BaseTestCaseWithData):
         Test the validation of the form
         """
         # get default form data
-        form_data = self._get_form_data(self.model_without_author)
+        form = get_default_form(self.model_without_author)
+        form_data = dict((key, form[key].value()) for key in form.fields)
+        form_data.update(dict(
+            csrf_token = None,
+            comment = 'comment',
+        ))
 
         # test valid form
         form = FlagForm(self.model_without_author, copy(form_data))
@@ -735,3 +741,176 @@ class FlagFormTestCase(BaseTestCaseWithData):
         form = FlagForm(self.model_without_author, data)
         self.assertFalse(form.is_valid())
 
+
+class FlagViewsTestCase(BaseTestCaseWithData):
+    """
+    Test the two views
+    """
+
+    def test_get_content_object(self):
+        """
+        Test the get_content_object in views.py
+        """
+        ctype = 'tests.modelwithauthor'
+        id = self.model_with_author.id
+
+        # no ctype or no id
+        self.assertTrue(isinstance(get_content_object(None, None), FlagBadRequest))
+        # bad ctype
+        self.assertTrue(isinstance(get_content_object('foobar', id), FlagBadRequest))
+        # not resolvable ctype
+        self.assertTrue(isinstance(get_content_object(ctype+'x', id), FlagBadRequest))
+        # not existing id
+        self.assertTrue(isinstance(get_content_object(ctype, 10000), FlagBadRequest))
+        # invalid id
+        self.assertTrue(isinstance(get_content_object(ctype, 'foobar'), FlagBadRequest))
+
+        # all ok
+        self.assertEqual(get_content_object(ctype, id), self.model_with_author)
+
+        # forbidden model
+        flag_settings.MODELS = ('tests.modelwithoutauthor',)
+        self.assertTrue(isinstance(get_content_object(ctype, id), FlagBadRequest))
+
+        # test debug mode on error
+        flag_settings.MODELS = None
+        settings.DEBUG = False
+        result_debug_false = get_content_object(ctype, 'foobar')
+        self.assertEqual(len(result_debug_false.content), 0)
+        debug = settings.DEBUG
+        settings.DEBUG = True
+        result_debug_true = get_content_object(ctype, 'foobar')
+        self.assertNotEqual(len(result_debug_true.content), 0)
+        settings.DEBUG = debug
+
+
+    def test_confirm_view(self):
+        """
+        Test the "confirm" view
+        """
+        url = get_confirm_url_for_object(self.model_without_author)
+
+        # not authenticated
+        resp = self.client.get(url)
+        self.assertTrue(isinstance(resp, HttpResponseRedirect))
+        self.assertTrue('?next=%s' % url in resp['Location'])
+
+        # authenticated user
+        self.client.login(username='%s-1' % self.USER_BASE, password=self.USER_BASE)
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(isinstance(resp.context['form'], FlagForm))
+        self.assertEqual(resp.context['next'], url)
+
+        # already flagged object
+        FlagInstance.objects.add(self.user, self.model_without_author, comment='comment')
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 200)
+        # with limit
+        flag_settings.LIMIT_SAME_OBJECT_FOR_USER = 1
+        resp = self.client.get(url)
+        self.assertEqual(resp.status_code, 302)
+
+        # bad content object
+        resp = self.client.get('/flag/foo/bar/1000/')
+        self.assertTrue(isinstance(resp, FlagBadRequest))
+
+    def test_post_view(self):
+        """
+        Test the "flag" view
+        """
+        # get default form data
+        form = get_default_form(self.model_without_author)
+        form_data = dict((key, form[key].value()) for key in form.fields)
+        form_data.update(dict(
+            csrf_token = None,
+            comment = 'comment',
+        ))
+
+        url = reverse('flag')
+
+        # not authenticated
+        resp = self.client.post(url, copy(form_data))
+        self.assertTrue(isinstance(resp, HttpResponseRedirect))
+        self.assertTrue('?next=%s' % url in resp['Location'])
+        self.assertEqual(FlagInstance.objects.count(), 0)
+
+        # authenticated user
+        self.client.login(username='%s-1' % self.USER_BASE, password=self.USER_BASE)
+        resp = self.client.post(url, copy(form_data))
+        self.assertTrue(isinstance(resp, HttpResponseRedirect))
+        self.assertEqual(FlagInstance.objects.count(), 1)
+        flagged_content = FlaggedContent.objects.get_for_object(self.model_without_author)
+        self.assertEqual(flagged_content.count, 1)
+        self.assertEqual(flagged_content.flaginstance_set.all()[0].comment, 'comment')
+
+        # bad object
+        data = copy(form_data)
+        data['object_pk'] = 'foo'
+        resp = self.client.post(url, data)
+        self.assertTrue(isinstance(resp, FlagBadRequest))
+
+        # creator
+        cform = get_default_form(self.model_with_author, 'author')
+        cform_data = dict((key, cform[key].value()) for key in cform.fields)
+        cform_data.update(dict(
+            csrf_token = None,
+            comment = 'comment',
+        ))
+        resp = self.client.post(url, copy(cform_data))
+        self.assertTrue(isinstance(resp, HttpResponseRedirect))
+        self.assertEqual(FlagInstance.objects.count(), 2)
+        self.assertEqual(FlaggedContent.objects.get_for_object(
+            self.model_with_author).count, 1)
+
+        # bad security
+        data = copy(form_data)
+        data['security_hash'] = 'zz' + data['security_hash'][2:]
+        resp = self.client.post(url, data)
+        self.assertTrue(isinstance(resp, FlagBadRequest))
+
+        # no comment allowed
+        flag_settings.ALLOW_COMMENTS = False
+        resp = self.client.post(url, copy(form_data))
+        flagged_content = FlaggedContent.objects.get_for_object(self.model_without_author)
+        self.assertEqual(flagged_content.count, 2)
+        self.assertIsNone(flagged_content.flaginstance_set.all()[0].comment)
+
+        # limit by user
+        flag_settings.LIMIT_SAME_OBJECT_FOR_USER = 2
+        flagged_content = FlaggedContent.objects.get_for_object(self.model_without_author)
+        count_before = flagged_content.count
+        resp = self.client.post(url, copy(form_data))
+        flagged_content = FlaggedContent.objects.get_for_object(self.model_without_author)
+        self.assertEqual(flagged_content.count, count_before)
+        flag_settings.LIMIT_SAME_OBJECT_FOR_USER = 0
+
+        # error : return to confirm page
+        flag_settings.ALLOW_COMMENTS = True
+        data = copy(form_data)
+        del data['comment'] # missing comment
+        data['next'] = '/foobar/'
+        resp = self.client.post(url, data)
+        self.assertEqual(resp.status_code, 200)
+        self.assertTrue(isinstance(resp.context['form'], FlagForm))
+        self.assertEqual(resp.context['next'], data['next'])
+
+
+        # test get access
+        resp = self.client.get(url)
+        self.assertTrue(isinstance(resp, FlagBadRequest))
+
+    def test_add_flag_compatibility(self):
+        """
+        Test the old "add_flag" function, kept for compatibility
+        """
+        flag_instance = add_flag(
+            self.user,
+            ContentType.objects.get_for_model(self.model_with_author),
+            self.model_with_author.id,
+            None,
+            'comment'
+        )
+
+        self.assertTrue(isinstance(flag_instance, FlagInstance))
+        self.assertEqual(flag_instance.flagged_content.content_object, self.model_with_author)

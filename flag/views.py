@@ -42,15 +42,15 @@ def get_next(request):
         next = getattr(request, 'path', None)
     return next
 
-class FlagPostBadRequest(HttpResponseBadRequest):
+class FlagBadRequest(HttpResponseBadRequest):
     """
     (based on django.contrib.comments.views.comments.CommentPostBadRequest)
-    Response returned when a flag post is invalid. If ``DEBUG`` is on a
+    Response returned when a flag get/post is invalid. If ``DEBUG`` is on a
     nice-ish error message will be displayed (for debugging purposes), but in
     production mode a simple opaque 400 page will be displayed.
     """
     def __init__(self, why):
-        super(FlagPostBadRequest, self).__init__()
+        super(FlagBadRequest, self).__init__()
         if settings.DEBUG:
             self.content = render_to_string("flag/400-debug.html", {"why": why})
 
@@ -77,28 +77,28 @@ def get_content_object(ctype, object_pk):
     (based on django.contrib.comments.views.comments.post_comment)
     """
     if ctype is None or object_pk is None:
-        return FlagPostBadRequest("Missing content_type or object_pk field.")
+        return FlagBadRequest("Missing content_type or object_pk field.")
     try:
         model = get_model(*ctype.split(".", 1))
         FlaggedContent.objects.assert_model_can_be_flagged(model)
         return model._default_manager.get(pk=object_pk)
     except TypeError:
-        return FlagPostBadRequest(
+        return FlagBadRequest(
             "Invalid content_type value: %r" % escape(ctype))
     except AttributeError:
-        return FlagPostBadRequest(
+        return FlagBadRequest(
             "The given content-type %r does not resolve to a valid model." % \
                 escape(ctype))
     except ObjectDoesNotExist:
-        return FlagPostBadRequest(
+        return FlagBadRequest(
             "No object matching content-type %r and object PK %r exists." % \
                 (escape(ctype), escape(object_pk)))
     except (ValueError, ValidationError), e:
-        return FlagPostBadRequest(
+        return FlagBadRequest(
             "Attempting go get content-type %r and object PK %r exists raised %s" % \
                 (escape(ctype), escape(object_pk), e.__class__.__name__))
     except FlagException, e:
-        return FlagPostBadRequest(
+        return FlagBadRequest(
             "Attempting to flag an unauthorized model (%r)" % \
                 escape(ctype))
 
@@ -131,10 +131,9 @@ def flag(request):
         form = form_class(target_object=content_object, data=post_data)
 
         if form.security_errors():
-            return FlagPostBadRequest(
+            return FlagBadRequest(
                 "The flag form failed security verification: %s" % \
                     escape(str(form.security_errors())))
-
 
         if form.is_valid():
 
@@ -174,6 +173,9 @@ def flag(request):
                 creator_field = post_data.get('creator_field', None),
                 form = form
             )
+
+    else:
+        return FlagBadRequest("Invalid access")
 
     # try to always redirect to next
     next = get_next(request)

@@ -248,6 +248,9 @@ class FlagInstance(models.Model):
 
     objects = FlagInstanceManager()
 
+    class Meta:
+        ordering = ('-when_added',)
+
     def save(self, *args, **kwargs):
         """
         Save the flag and, if it's a new one, tell it to the flagged_content.
