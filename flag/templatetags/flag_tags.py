@@ -49,16 +49,17 @@ def can_be_flagged_by(content_object, user):
     LIMIT_SAME_OBJECT_FOR_USER is not raised
     Usage: {% if some_object|can_by_flagged_by:request.user %}...{% endif %}
     """
-    if not (user and user.is_active and user.is_authenticated()):
-        return False
-    if not FlaggedContent.objects.model_can_be_flagged(content_object):
-        return False
     try:
-        flagged_content = FlaggedContent.objects.get_for_object(content_object)
-        return flagged_content.can_be_flagged_by_user(user)
-    except ObjectDoesNotExist:
-        # no FlaggedContent, we know it canbe flagged
-        return True
+        if not (user and user.is_active and user.is_authenticated()):
+            return False
+        if not FlaggedContent.objects.model_can_be_flagged(content_object):
+            return False
+        try:
+            flagged_content = FlaggedContent.objects.get_for_object(content_object)
+            return flagged_content.can_be_flagged_by_user(user)
+        except ObjectDoesNotExist:
+            # no FlaggedContent, we know it canbe flagged
+            return True
     except:
         return False
 

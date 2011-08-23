@@ -277,4 +277,4 @@ def add_flag(flagger, content_type, object_id, content_creator, comment, status=
     This function is here for compatibility
     """
     content_object = content_type.get_object_for_this_type(id=object_id)
-    return FlagInstance.objects.add_flag(flagged, content_object, content_creator, comment, status)
+    return FlagInstance.objects.add(flagger, content_object, content_creator, comment, status)

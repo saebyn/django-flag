@@ -7,7 +7,7 @@ from django.contrib.auth.models import User, AnonymousUser
 from django.contrib.contenttypes.models import ContentType
 from django.db import IntegrityError
 from django.core.management import call_command
-from django.db.models import loading
+from django.db.models import loading, ObjectDoesNotExist
 from django.conf import settings
 from django.core.urlresolvers import reverse
 
@@ -30,9 +30,11 @@ class BaseTestCase(TestCase):
         'django.contrib.auth',
         'django.contrib.messages',
         'django.contrib.contenttypes',
+        'django.contrib.sessions',
         'flag',
         'flag.tests',
     ]
+
     test_settings = dict(
         ROOT_URLCONF = 'urls',
     )
@@ -135,8 +137,7 @@ class BaseTestCase(TestCase):
         )
         if comment:
             params['comment'] = comment
-        flag = flagged_content.flaginstance_set.create(**params)
-        return flag
+        return flagged_content.flaginstance_set.create(**params)
 
     def _delete_flags(self):
         """
@@ -209,6 +210,34 @@ class ModelsTestCase(BaseTestCaseWithData):
         self.assertNotRaises(
             FlaggedContent.objects.assert_model_can_be_flagged, self.model_with_author)
 
+        # test many ways to pass a contentype
+        # - object
+        self.assertTrue(FlaggedContent.objects.model_can_be_flagged(
+            self.model_with_author))
+        # - model
+        self.assertTrue(FlaggedContent.objects.model_can_be_flagged(
+            self.model_with_author.__class__))
+        self.assertFalse(FlaggedContent.objects.model_can_be_flagged(
+            Exception))
+        # - content_type
+        content_type = ContentType.objects.get_for_model(self.model_with_author)
+        #  - object
+        self.assertTrue(FlaggedContent.objects.model_can_be_flagged(
+            content_type))
+        #  - id
+        self.assertTrue(FlaggedContent.objects.model_can_be_flagged(
+            content_type.id))
+        #  - str(id)
+        self.assertTrue(FlaggedContent.objects.model_can_be_flagged(
+            str(content_type.id)))
+        # app_label.model_name
+        self.assertTrue(FlaggedContent.objects.model_can_be_flagged(
+            '%s.%s' % (content_type.app_label, content_type.model)))
+        self.assertFalse(FlaggedContent.objects.model_can_be_flagged(
+            'foobar'))
+
+
+
     def test_add_forbidden_flagged_content(self):
         """
         Try to add a FlaggedContent object regarding the MODELS settings
@@ -241,7 +270,6 @@ class ModelsTestCase(BaseTestCaseWithData):
             self._add_flagged_content, self.model_without_author)
         self.assertRaises(IntegrityError,
             self._add_flagged_content, self.model_with_author)
-
 
     def test_object_can_be_flagged(self):
         """
@@ -412,11 +440,11 @@ class ModelsTestCase(BaseTestCaseWithData):
         self.assertEqual(add().flagged_content.count, 2)
 
         # update a flag : the count shouldn't change
-        flag = FlagInstance.objects.all()[0]
-        previous_count = flag.flagged_content.count
-        flag.when_added = datetime.now()
-        flag.save()
-        self.assertEqual(flag.flagged_content.count, previous_count)
+        flag_instance = FlagInstance.objects.all()[0]
+        previous_count = flag_instance.flagged_content.count
+        flag_instance.when_added = datetime.now()
+        flag_instance.save()
+        self.assertEqual(flag_instance.flagged_content.count, previous_count)
 
 
     def test_count_flags_by_user(self):
@@ -453,17 +481,63 @@ class ModelsTestCase(BaseTestCaseWithData):
         self.assertNotRaises(content_flagged.connect, receive_signal)
 
         # add a flag => send a signal
-        flag = add()
-        self.assertEqual(self.signal_received['flagged_instance'], flag)
+        flag_instance = add()
+        self.assertEqual(self.signal_received['flagged_instance'], flag_instance)
 
         clear_received_signal()
 
         # update the flag => do not send signal
-        flag.when_added = datetime.now()
-        flag.save()
+        flag_instance.when_added = datetime.now()
+        flag_instance.save()
         self.assertRaises(AttributeError, getattr, self, 'signal_received')
 
         clear_received_signal()
+
+    def test_get_for_object(self):
+        """
+        Test the get_for_object helper
+        """
+        # unexisting flag content
+        self.assertRaises(ObjectDoesNotExist, FlaggedContent.objects.get_for_object,
+            self.model_without_author)
+
+        # add one
+        flagged_content = self._add_flagged_content(self.model_without_author)
+        self.assertEqual(flagged_content,
+            FlaggedContent.objects.get_for_object(self.model_without_author))
+
+    def test_get_or_create_for_object(self):
+        """
+        Test the get_or_create_for_object
+        """
+
+        # unexisting
+        flagged_content, created = FlaggedContent.objects.get_or_create_for_object(
+            self.model_without_author)
+        self.assertTrue(isinstance(flagged_content, FlaggedContent))
+        self.assertTrue(created)
+        self.assertEqual(flagged_content.content_object, self.model_without_author)
+
+        # existing
+        same_flagged_content, created = FlaggedContent.objects.get_or_create_for_object(
+            self.model_without_author)
+        self.assertFalse(created)
+        self.assertEqual(flagged_content, same_flagged_content)
+
+        flagged_content.delete()
+
+        # with status and creator
+        # - unexisting
+        flagged_content, created = FlaggedContent.objects.get_or_create_for_object(
+            self.model_without_author, status='2', content_creator=self.author)
+        self.assertEqual(flagged_content.status, '2')
+        self.assertEqual(flagged_content.creator, self.author)
+
+        # - existing, status not updated (it's a feature)
+        same_flagged_content, created = FlaggedContent.objects.get_or_create_for_object(
+            self.model_without_author, status='3', content_creator=self.user)
+        self.assertEqual(same_flagged_content.status, '2')
+        self.assertEqual(same_flagged_content.creator, self.author)
 
 
 
@@ -540,6 +614,9 @@ class FlagTemplateTagsTestCase(BaseTestCaseWithData):
         self.assertTrue(flag_tags.can_be_flagged_by(self.model_with_author, self.user))
         add()
         self.assertFalse(flag_tags.can_be_flagged_by(self.model_with_author, self.user))
+
+        # test with invalid object
+        self.assertFalse(flag_tags.can_be_flagged_by(self.model_with_author, Exception))
 
     def test_flag_confirm_url(self):
         """
@@ -643,10 +720,11 @@ class FlagFormTestCase(BaseTestCaseWithData):
         form = FlagForm(self.model_without_author, data)
         self.assertFalse(form.is_valid())
         self.assertEqual(len(form['security_hash'].errors), 1)
+        self.assertTrue(len(form.security_errors()) == 1)
 
         # test bad timestamp
         data = copy(form_data)
-        data['timestamp'] = str(time.time() + (3 * 60 * 60))
+        data['timestamp'] = str(int(time.time()) - (3 * 60 * 60))
         form = FlagForm(self.model_without_author, data)
         self.assertFalse(form.is_valid())
         self.assertEqual(len(form['timestamp'].errors), 1)
