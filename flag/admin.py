@@ -7,6 +7,7 @@ from flag.models import FlaggedContent, FlagInstance
 class InlineFlagInstance(admin.TabularInline):
     model = FlagInstance
     extra = 0
+    raw_id_fields = ('user', )
 
 
 class FlaggedContentAdmin(admin.ModelAdmin):
@@ -15,6 +16,7 @@ class FlaggedContentAdmin(admin.ModelAdmin):
     list_display_links = ('id', '__unicode__')
     list_filter = ('status',)
     readonly_fields = ('content_type', 'object_id')
+    raw_id_fields = ('creator', 'moderator')
     if get_version() >= '1.4':
         fields = (('content_type', 'object_id'), 'creator', 'status', 'count', 'moderator')
     else:
