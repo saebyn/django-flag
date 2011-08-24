@@ -59,6 +59,10 @@ FLAG_STATUSES = [
 
 ## Usage
 
+* add `flag` to your INSTALLED_APPS
+* add the urls to your urls : `url(r'^flag/', include('flag.urls')),`
+
+
 *djang-flag* provides some usefull templatetags and filters to be included via `{% load flag_tags %}`.
 
 There are two ways to use these templatetags to use *django-flag* :
@@ -155,8 +159,32 @@ This model keeps a reference to the flagged object, store its current status, th
 
 Each flag is stored in this model, which store the user/flagger, the flagged content, an optional comment, and the date of the flag
 
+You can add a flag programmatically with :
+
+```python
+FlagInstance.objects.add(flagging_user, object_to_flag, 'creator field (or None)', 'a comment')
+```
+
+### Views and urls
+
+*django-flag* has two urls and views : 
+
+* one to display the confirm page, (url `flag_confirm`, view `confirm`), with some parameters : `app_label`, `object_name`, `object_id`, `creator_field` (the last one is optionnal)
+* one to flag (only POST allowed) (url `flag`, view `flag`), without any parameter
+
 ### Security
 
-The form used by *django-flag* is based on the `CommentSecurityForm` provided by `django.contrib.comments.forms`.
-It provides a security_hash to limit spoofing.
+The form used by *django-flag* is based on a the `CommentSecurityForm` provided by `django.contrib.comments.forms`.
+It provides a security_hash to limit spoofing (we don't directly use `CommentSecurityForm`, but a duplicate, because we don't want to import the comments models)
+
+When something forbidden is done (bad security hash, object the user can't flag...), a `FlagBadRequest` (based on `HttpResponseBadRequest`) is returned.
+While in debug mode, this `FlagBadRequest` doesn't return a HTTP error (400), but render a template with more information.
+
+### Tests
+
+*django-flag* is fully tester. Just run `manage.py test flag` in your project.
+If `django-nose` is installed, it is used to run tests. You can see a coverage of 98%. Admin and some weird `next` parameters are not tested.
+
+*django-flag* also provide a test project, where you can flag users (no other model included).
+
 
