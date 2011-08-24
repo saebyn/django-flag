@@ -127,6 +127,19 @@ INSTALLED_APPS = (
     'flag',
 )
 
+try:
+    import nose
+except:
+    pass
+else:
+    INSTALLED_APPS = tuple(list(INSTALLED_APPS) + ['django_nose',])
+    TEST_RUNNER = 'django_nose.NoseTestSuiteRunner'
+    NOSE_ARGS = [
+        '--with-coverage',
+        '--cover-package=flag',
+    ]
+
+
 # A sample logging configuration. The only tangible logging
 # performed by this configuration is to send an email to
 # the site admins on every HTTP 500 error.
@@ -154,3 +167,4 @@ FLAG_ALLOW_COMMENTS = True
 FLAG_LIMIT_SAME_OBJECT_FOR_USER = 15
 FLAG_LIMIT_FOR_OBJECT = 12
 
+FLAG_MODELS = ('auth.user',)

@@ -1,0 +1,27 @@
+{% extends "admin/change_form.html" %}
+{% load i18n %}
+{% block object-tools %}
+    {{ block.super }}
+    {% if change %}
+    {% with adminform.form.instance as obj %}
+        {# link for flagged object #}
+        <p>
+            {% blocktrans with obj as flagged_object %}Flagged object: {{ flagged_object }}{% endblocktrans %}
+            {% with content_object_admin_url=obj.get_content_object_admin_url content_object_abs_url=obj.content_object.get_absolute_url %}
+                {% if content_object_admin_url %}<a href="{{ content_object_admin_url }}">{% trans "admin link" %}</a>{% endif %}
+                {% if content_object_admin_url and content_object_abs_url %} | {% endif %}
+                {% if content_object_abs_url %}<a href="{{ content_object_abs_url }}">{% trans "site link" %}</a>{% endif %}
+            {% endwith %}
+        </p>
+        {# link for creator #}
+        {% if obj.creator %}
+            <p>
+                {% blocktrans with obj.creator as creator %}Creator: {{ creator }}{% endblocktrans %}
+                <a href="{% url admin:auth_user_change obj.creator.id %}">{% trans "admin link" %}</a>
+                |
+                <a href="{{ obj.creator.get_absolute_url }}">{% trans "site link" %}</a>
+            </p>
+        {% endif %}
+    {% endwith %}
+    {% endif %}
+{% endblock %}

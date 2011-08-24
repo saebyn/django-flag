@@ -3,8 +3,8 @@ from setuptools import setup, find_packages
 
 setup(
     name = "django-flag",
-    version = "0.2.dev10",
-    description = "flagging of inapproriate/spam content",
+    version = "0.3.dev01",
+    description = "flagging of inapproriate/spam content in Django",
     author = "Greg Newman",
     author_email = "greg@20seven.org",
     url = "http://code.google.com/p/django-flag/",

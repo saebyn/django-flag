@@ -1,2 +1,2 @@
-recursive-include docs *.txt
+include README.md
 recursive-include flag/templates *.html
