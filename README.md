@@ -2,6 +2,8 @@
 
 This app lets users of your site flag content as inappropriate or spam.
 
+PS : this v0.3 is a big rewrite, but with retrocompatibility kept in mind.
+
 ## Where's Wally ?
 
 The original code is here : https://github.com/pinax/django-flag
@@ -115,7 +117,22 @@ Usage of the filter:
 <a href="{{ anobject|flag_confirm_url }}">flag</a>
 ```
 
-## Other things
+### Signal
+
+When an object is flagged, an signal `content_flagged` is sent, with the `flagged_content` and `flagged_instance` objects (`flagged_instance` should be called `flag_instance` but this is kept for retrocompatibility).
+
+```python
+from flag.signals import content_flagged
+
+def something_was_flagged(sender, signal, flagged_content, flagged_instance):
+    # do something here
+    
+content_flagged.connect(something_was_flagged)
+```
+
+This signal is sent only when a *new* flag is created, not when the add fail and not when a flag is updated.
+
+## Other things you would want to know
 
 ### More template filters
 
@@ -143,6 +160,18 @@ Example, with `an_object` having a `author` field as a *ForeignKey* to the `User
 <a href="{{ anobject|flag_confirm_url:'author' }}">flag</a>
 ```
 
+### Tests
+
+*django-flag* is fully tester. Just run `manage.py test flag` in your project.
+If `django-nose` is installed, it is used to run tests. You can see a coverage of 98%. Admin and some weird `next` parameters are not tested.
+
+*django-flag* also provide a test project, where you can flag users (no other model included).
+
+### Admin
+
+The admin interface for *django-flag* has been improved a bit : better list and change form with for this one, links to flagged objects and their authors.
+
+
 ## Internal
 
 ### Models
@@ -165,6 +194,8 @@ You can add a flag programmatically with :
 FlagInstance.objects.add(flagging_user, object_to_flag, 'creator field (or None)', 'a comment')
 ```
 
+In previous version, a `add_flag` (in `models.py`) function was the way to add a flag. It is always here, for retrocompatibility, but with a simple call to `FlagInstance.objects.add`.
+
 ### Views and urls
 
 *django-flag* has two urls and views : 
@@ -179,12 +210,5 @@ It provides a security_hash to limit spoofing (we don't directly use `CommentSec
 
 When something forbidden is done (bad security hash, object the user can't flag...), a `FlagBadRequest` (based on `HttpResponseBadRequest`) is returned.
 While in debug mode, this `FlagBadRequest` doesn't return a HTTP error (400), but render a template with more information.
-
-### Tests
-
-*django-flag* is fully tester. Just run `manage.py test flag` in your project.
-If `django-nose` is installed, it is used to run tests. You can see a coverage of 98%. Admin and some weird `next` parameters are not tested.
-
-*django-flag* also provide a test project, where you can flag users (no other model included).
 
 
