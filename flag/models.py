@@ -193,7 +193,7 @@ class FlaggedContent(models.Model):
 
         super(FlaggedContent, self).save(*args, **kwargs)
 
-    def flag_added(self, flag_instance):
+    def flag_added(self, flag_instance, send_signal=False):
         """
         Called when a flag is added, to update the count and send a signal
         """
@@ -205,12 +205,13 @@ class FlaggedContent(models.Model):
         new_self = FlaggedContent.objects.get(id=self.id)
         self.count = new_self.count
 
-        # send a signal
-        signals.content_flagged.send(
-            sender = FlaggedContent,
-            flagged_content = self,
-            flagged_instance = flag_instance,
-        )
+        # send a signal if wanted
+        if send_signal:
+            signals.content_flagged.send(
+                sender = FlaggedContent,
+                flagged_content = self,
+                flagged_instance = flag_instance,
+            )
 
 
 class FlagInstanceManager(models.Manager):
@@ -218,7 +219,8 @@ class FlagInstanceManager(models.Manager):
     Manager for the FlagInstance model, adding a `add` method
     """
 
-    def add(self, user, content_object, content_creator=None, comment=None, status=None):
+    def add(self, user, content_object, content_creator=None, comment=None,
+            status=None, send_signal=False):
         """
         Helper to easily create a flag of an object
         `content_creator` and `status` can only be set if it's the first flag
@@ -229,11 +231,12 @@ class FlagInstanceManager(models.Manager):
                 content_object, content_creator, status)
 
         # add the flag
-        flag_instance = FlagInstance.objects.create(
+        flag_instance = FlagInstance(
             flagged_content = flagged_content,
             user = user,
             comment = comment
         )
+        flag_instance.save(send_signal=send_signal)
 
         return flag_instance
 
@@ -255,8 +258,11 @@ class FlagInstance(models.Model):
         """
         Save the flag and, if it's a new one, tell it to the flagged_content.
         Also check if set a comment is allowed
+        If a `send_signal` is passed, we pass it to the `flag_added` method
+        of the flagged_content to tell him to send the signal (default False)
         """
         is_new = not bool(self.id)
+        send_signal = kwargs.pop('send_signal', False)
 
         # check if the user can flag this object
         self.flagged_content.assert_can_be_flagged_by_user(self.user)
@@ -272,7 +278,7 @@ class FlagInstance(models.Model):
 
         # tell the flagged_content that it has a new flag
         if is_new:
-            self.flagged_content.flag_added(self)
+            self.flagged_content.flag_added(self, send_signal=send_signal)
 
 
 def add_flag(flagger, content_type, object_id, content_creator, comment, status=None):

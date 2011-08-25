@@ -479,14 +479,21 @@ class ModelsTestCase(BaseTestCaseWithData):
             if hasattr(self, 'signal_received'):
                 delattr(self, 'signal_received')
 
-        def add():
-            return FlagInstance.objects.add(self.user, self.model_without_author, comment='comment')
+        def add(send_signal=False):
+            return FlagInstance.objects.add(self.user, self.model_without_author,
+                comment='comment', send_signal=send_signal)
 
         # connect to the signal
         self.assertNotRaises(content_flagged.connect, receive_signal)
 
-        # add a flag => send a signal
+        # add a flag => by default do not send signal
         flag_instance = add()
+        self.assertRaises(AttributeError, getattr, self, 'signal_received')
+
+        clear_received_signal()
+
+        # add a flag by saying "send the signal"
+        flag_instance = add(send_signal=True)
         self.assertEqual(self.signal_received['flagged_instance'], flag_instance)
 
         clear_received_signal()
