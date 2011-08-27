@@ -130,7 +130,7 @@ def something_was_flagged(sender, signal, flagged_content, flagged_instance):
 content_flagged.connect(something_was_flagged)
 ```
 
-This signal is sent only when a *new* flag is created, not when the add fail and not when a flag is updated.
+This signal is sent only when a *new* flag is created, not when the add fail and not when a flag is updated. And only when it is created via the form. When saved in admin or in a shell, the signal is not sent. In the shell you must pass a `send_signal` parameter (`True`) to the `save` or `add` methods. If you want a signal sent for *every* save of a flag, you can use the django `post_save` one.
 
 ## Other things you would want to know
 
