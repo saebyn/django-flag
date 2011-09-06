@@ -2,7 +2,7 @@
 
 This app lets users of your site flag content as inappropriate or spam.
 
-PS : this v0.3 is a big rewrite, but with retrocompatibility kept in mind.
+PS : the version 0.3 is a big rewrite, but with retrocompatibility kept in mind.
 
 ## Where's Wally ?
 
@@ -59,6 +59,39 @@ FLAG_STATUSES = [
 ]
 ```
 
+### FLAG_SEND_MAILS
+Set `FLAG_SEND_MAILS` to `True` if you want to have emails sent when object are flagged.
+See others settings SEND_MAILS_* for more configuration
+Default to `False`
+
+### SEND_MAILS_TO
+Set `FLAG_SEMD_MAILS_TO` to a list of email addresses to sent mails when an object is flagged.
+Each entry can be either a single email address, or a tuple with (name, email address) but only the mail will be used.
+Default to `settings.ADMINS`
+
+### SEND_MAILS_FROM
+Set `FLAG_SEND_MAILS_FROM` to an email address to use as the send of mails sent when an object is flagged.
+Default to `settings.DEFAULT_FROM_EMAIL`
+
+### SEND_MAILS_RULES
+Set FLAG_SEND_MAILS_RULES to define when to send mails for flags.
+This settings is a list of tuple, each line defining a rule.
+A rule is a tuple with two entries, the first one is the minimum flag for an object for which this rule apply, and the second one is the frequency :
+Example : `(5, 3)` = if an object is flagged 5 times or more, send a mail every 3 flags.
+If this rule is followed by `(11, 5)`, it will be used only when an object is flagged between 5 and 10 times (both included), then the `11` rules will apply.
+A mail will be send if the LIMIT_FOR_OBJECT is reached, ignoring the rules.
+Default to `[(1, 1)` : send a mail for each flag (if `FLAG_SEND_MAILS` is `True`)
+
+Exemple:
+
+```python
+FLAG_SEND_MAILS_RULES = [
+    (1, 1),  # send a mail for every flag
+    (5, 3),  # send a mail every 3 flags starting to the 5th flag
+    (11, 5), # send a mail every 5 flags starting to the 11th flag
+]
+```
+
 ## Usage
 
 * add `flag` to your INSTALLED_APPS
@@ -108,7 +141,7 @@ This default template is as simple as :
 You can override the template used by this view by two ways :
 
 * create your own `flag/confirm.html` template
-* create, for each model that can be flagged, a template `flag/confirm_applabel_modelname.html` (by replacing *app_label* and *model_name* by the good values).
+* create, for each model that can be flagged and for which you want a specific template, a template `flag/confirm_applabel_modelname.html` (by replacing *app_label* and *model_name* by the good values, ex. `auth` and `user` for the `User` model in `django.contrib.auth`).
 
 Usage of the filter:
 
@@ -119,18 +152,29 @@ Usage of the filter:
 
 ### Signal
 
-When an object is flagged, an signal `content_flagged` is sent, with the `flagged_content` and `flagged_instance` objects (`flagged_instance` should be called `flag_instance` but this is kept for retrocompatibility).
+When an object is flagged, a signal `content_flagged` is sent, with the `flagged_content` and `flagged_instance` objects (`flagged_instance` should be called `flag_instance` but this is kept for retrocompatibility).
 
 ```python
 from flag.signals import content_flagged
 
 def something_was_flagged(sender, signal, flagged_content, flagged_instance):
     # do something here
-    
+
 content_flagged.connect(something_was_flagged)
 ```
 
 This signal is sent only when a *new* flag is created, not when the add fail and not when a flag is updated. And only when it is created via the form. When saved in admin or in a shell, the signal is not sent. In the shell you must pass a `send_signal` parameter (`True`) to the `save` or `add` methods. If you want a signal sent for *every* save of a flag, you can use the django `post_save` one.
+
+### Mails
+
+When an object is flagged, and if the `FLAG_SEND_MAILS` setting is `True`, the `SEND_MAILS_RULES` rules will be analyzed and if one matching the current count of flags for this object, a mail is send to recipients defined in `SEND_MAILS_TO`.
+
+The subjet and body of the sent mail are stored in templates `flag/mail_alert_subject.txt` and `flag/mail_alert_body.txt`.
+
+You can override these temlates by two ways :
+
+* create your own `flag/mail_alert_subject.txt` and/or `flag/mail_alert_body.txt` templates
+* create, for each model that can be flagged and for which you want a specific template, `flag/mail_alert_subject_applabel_modelname.txt` and/or `flag/mail_alert_body_applabel_modelname.txt` (by replacing *app_label* and *model_name* by the good values, ex. `auth` and `user` for the `User` model in `django.contrib.auth`).
 
 ## Other things you would want to know
 
@@ -198,7 +242,7 @@ In previous version, a `add_flag` (in `models.py`) function was the way to add a
 
 ### Views and urls
 
-*django-flag* has two urls and views : 
+*django-flag* has two urls and views :
 
 * one to display the confirm page, (url `flag_confirm`, view `confirm`), with some parameters : `app_label`, `object_name`, `object_id`, `creator_field` (the last one is optionnal)
 * one to flag (only POST allowed) (url `flag`, view `flag`), without any parameter
