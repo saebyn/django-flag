@@ -6,6 +6,8 @@ from django.contrib.auth.models import User
 from django.contrib.contenttypes.models import ContentType
 from django.contrib.contenttypes import generic
 from django.utils.translation import ugettext_lazy as _, ungettext
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
 
 from flag import settings as flag_settings
 from flag import signals
@@ -193,7 +195,7 @@ class FlaggedContent(models.Model):
 
         super(FlaggedContent, self).save(*args, **kwargs)
 
-    def flag_added(self, flag_instance, send_signal=False):
+    def flag_added(self, flag_instance, send_signal=False, send_mails=False):
         """
         Called when a flag is added, to update the count and send a signal
         """
@@ -213,6 +215,32 @@ class FlaggedContent(models.Model):
                 flagged_instance = flag_instance,
             )
 
+        # send emails if wanted
+        if send_mails and flag_settings.SEND_MAILS:
+
+            # always send mail if the max flag is reached
+            really_send_mails = flag_settings.LIMIT_FOR_OBJECT \
+                and self.count == flag_settings.LIMIT_FOR_OBJECT
+
+            # limit not reached, check rules
+            if not really_send_mails:
+                # check rule
+                current_rule = (0, 0)
+                for rule in flag_settings.SEND_MAILS_RULES:
+                    if self.count >= rule[0]:
+                        current_rule = rule
+                    else:
+                        break
+
+                # do we need to send mail ?
+                if current_rule[1] and \
+                        not (self.count - current_rule[0] + 1) % current_rule[1]:
+                    really_send_mails = True
+
+            # finally send mails if we really want to do it
+            if really_send_mails:
+                flag_instance.send_mails()
+
 
 class FlagInstanceManager(models.Manager):
     """
@@ -220,7 +248,7 @@ class FlagInstanceManager(models.Manager):
     """
 
     def add(self, user, content_object, content_creator=None, comment=None,
-            status=None, send_signal=False):
+            status=None, send_signal=False, send_mails=False):
         """
         Helper to easily create a flag of an object
         `content_creator` and `status` can only be set if it's the first flag
@@ -236,7 +264,7 @@ class FlagInstanceManager(models.Manager):
             user = user,
             comment = comment
         )
-        flag_instance.save(send_signal=send_signal)
+        flag_instance.save(send_signal=send_signal, send_mails=send_mails)
 
         return flag_instance
 
@@ -260,9 +288,11 @@ class FlagInstance(models.Model):
         Also check if set a comment is allowed
         If a `send_signal` is passed, we pass it to the `flag_added` method
         of the flagged_content to tell him to send the signal (default False)
+        Idem with `send_mails`, to send emails if settings allow it.
         """
         is_new = not bool(self.id)
         send_signal = kwargs.pop('send_signal', False)
+        send_mails = kwargs.pop('send_mails', False)
 
         # check if the user can flag this object
         self.flagged_content.assert_can_be_flagged_by_user(self.user)
@@ -278,13 +308,61 @@ class FlagInstance(models.Model):
 
         # tell the flagged_content that it has a new flag
         if is_new:
-            self.flagged_content.flag_added(self, send_signal=send_signal)
+            self.flagged_content.flag_added(self, send_signal=send_signal,
+                send_mails=send_mails)
+
+    def send_mails(self):
+        """
+        Send mails to alert of the current flag
+        """
+        if not flag_settings.SEND_MAILS:
+            return
+
+        # prepare recipients
+        recipient_list = []
+        for recipient in flag_settings.SEND_MAILS_TO:
+            if isinstance(recipient, basestring):
+                recipient_list.append(recipient)
+            else:
+                recipient_list.append(recipient[1])
+
+        # subject and body from templates
+        app_label = self.flagged_content.content_object._meta.app_label
+        model_name = self.flagged_content.content_object._meta.module_name
+        context = dict(
+            flag = self,
+            app_label = app_label,
+            model_name = model_name,
+            count = self.flagged_content.count,
+            object = self.flagged_content.content_object,
+            flagger = self.user,
+        )
+        subject = render_to_string([
+                'flag/mail_alert_subject_%s_%s.html' % (app_label, model_name),
+                'flag/mail_alert_subject.txt',
+            ], context
+        ).replace("\n", " ").replace("\r", " ")
+        message = render_to_string([
+                'flag/mail_alert_body_%s_%s.html' % (app_label, model_name),
+                'flag/mail_alert_body.txt',
+            ], context
+        )
+
+        # really send the mails !
+        send_mail(
+            subject = subject,
+            message = message,
+            from_email = flag_settings.SEND_MAILS_FROM,
+            recipient_list = recipient_list,
+            fail_silently = True
+        )
 
 
 def add_flag(flagger, content_type, object_id, content_creator, comment,
-        status=None, send_signal=True):
+        status=None, send_signal=True, send_mails=True):
     """
     This function is here for compatibility
     """
     content_object = content_type.get_object_for_this_type(id=object_id)
-    return FlagInstance.objects.add(flagger, content_object, content_creator, comment, status, send_signal)
+    return FlagInstance.objects.add(flagger, content_object, content_creator,
+        comment, status, send_signal, send_mails)

@@ -1,2 +1,2 @@
 include README.md
-recursive-include flag/templates *.html
+recursive-include flag/templates *.html *.txt

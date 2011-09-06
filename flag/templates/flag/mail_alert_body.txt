@@ -1,0 +1,17 @@
+Hi
+
+A "{{ app_label }}.{{ model_name }}" object (#{{ object.pk }}) was just flagged by {{ flagger }}.
+
+The object flagged is: {{ object }}
+{% with object.get_absolute_url as object_url %}{% if object_url %}
+It's url: {{ object_url }}{% endif %}{% endwith %}
+
+Total flags: {{ count }}
+{% if flag.comment %}
+Comment:
+-----------------------------------------------------------------------
+{{ flag.comment }}
+-----------------------------------------------------------------------{% endif %}
+XYX
+
+{% with flagger.get_absolute_url as flagger__url %}{% if flagger_url %}The flagger's url: {{ flagger_url }}{% endif %}{% endwith %}

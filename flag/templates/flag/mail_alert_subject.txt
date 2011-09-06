@@ -1,0 +1,1 @@
+Object {{ app_label }}.{{ model_name }} #{{ object.pk }} was just flagged{% if count > 1 %} ({{count }} times){% endif %}

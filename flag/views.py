@@ -157,7 +157,7 @@ def flag(request):
             # add the flag, but check the user can do it
             try:
                 FlagInstance.objects.add(request.user, content_object,
-                    creator, comment, send_signal=True)
+                    creator, comment, send_signal=True, send_mails=True)
             except FlagException, e:
                 messages.error(request, unicode(e))
             else:
