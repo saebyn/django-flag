@@ -164,7 +164,12 @@ LOGGING = {
 }
 
 FLAG_ALLOW_COMMENTS = True
-FLAG_LIMIT_SAME_OBJECT_FOR_USER = 15
-FLAG_LIMIT_FOR_OBJECT = 12
+FLAG_LIMIT_SAME_OBJECT_FOR_USER = 5
+FLAG_LIMIT_FOR_OBJECT = 10
 
 FLAG_MODELS = ('auth.user',)
+
+try:
+    from local_settings import *
+except:
+    pass
