@@ -8,6 +8,7 @@ from django.contrib.contenttypes import generic
 from django.utils.translation import ugettext_lazy as _, ungettext
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
+from django.contrib.sites.models import Site
 
 from flag import settings as flag_settings
 from flag import signals
@@ -336,6 +337,7 @@ class FlagInstance(models.Model):
             count = self.flagged_content.count,
             object = self.flagged_content.content_object,
             flagger = self.user,
+            site = Site.objects.get_current(),
         )
         subject = render_to_string([
                 'flag/mail_alert_subject_%s_%s.html' % (app_label, model_name),
