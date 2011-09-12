@@ -77,18 +77,19 @@ Default to `settings.DEFAULT_FROM_EMAIL`
 Set FLAG_SEND_MAILS_RULES to define when to send mails for flags.
 This settings is a list of tuple, each line defining a rule.
 A rule is a tuple with two entries, the first one is the minimum flag for an object for which this rule apply, and the second one is the frequency :
-Example : `(5, 3)` = if an object is flagged 5 times or more, send a mail every 3 flags.
-If this rule is followed by `(11, 5)`, it will be used only when an object is flagged between 5 and 10 times (both included), then the `11` rules will apply.
+Example : `(4, 3)` = if an object is flagged 4 times or more, send a mail every 3 flags (4, 7 and 10)
+If this rule is followed by `(10, 5)`, it will be used only when an object is flagged between 5 (included) and 10 times (not included), then the `10` rules will apply (10, 15, 20...)
 A mail will be send if the LIMIT_FOR_OBJECT is reached, ignoring the rules.
 Default to `[(1, 1)` : send a mail for each flag (if `FLAG_SEND_MAILS` is `True`)
 
 Exemple:
 
 ```python
+# mail will be send for 1, 2, 3, 4, 7, 10, 15, 20, 25...
 FLAG_SEND_MAILS_RULES = [
     (1, 1),  # send a mail for every flag
-    (5, 3),  # send a mail every 3 flags starting to the 5th flag
-    (11, 5), # send a mail every 5 flags starting to the 11th flag
+    (4, 3),  # send a mail every 3 flags starting to the 5th flag
+    (10, 5), # send a mail every 5 flags starting to the 10th flag
 ]
 ```
 

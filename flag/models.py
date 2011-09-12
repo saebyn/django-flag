@@ -221,7 +221,7 @@ class FlaggedContent(models.Model):
 
             # always send mail if the max flag is reached
             really_send_mails = flag_settings.LIMIT_FOR_OBJECT \
-                and self.count == flag_settings.LIMIT_FOR_OBJECT
+                and self.count >= flag_settings.LIMIT_FOR_OBJECT
 
             # limit not reached, check rules
             if not really_send_mails:
@@ -235,7 +235,7 @@ class FlaggedContent(models.Model):
 
                 # do we need to send mail ?
                 if current_rule[1] and \
-                        not (self.count - current_rule[0] + 1) % current_rule[1]:
+                        not (self.count - current_rule[0]) % current_rule[1]:
                     really_send_mails = True
 
             # finally send mails if we really want to do it

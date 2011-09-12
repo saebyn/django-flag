@@ -67,10 +67,11 @@ SEND_MAILS_FROM = getattr(conf.settings, "FLAG_SEND_MAILS_FROM", _DEFAULTS['SEND
 # Set FLAG_SEND_MAILS_RULES to define when to send mails for flags. This
 # settings is a list of tuple, each line defining a rule. A rule is a tuple
 # with two entries, the first one is the minimum flag for an object for which
-# this rule apply, and the second one is the frequency : (5, 3) => if an
-# object is flagged 5 times or more, send a mail every 3 flags.
-# If this rule is followed by (11, 5), it will be used only when number of
-# flags is between 5 and 10 (both included), then the "11" rules will apply.
+# this rule apply, and the second one is the frequency : (4, 3) => if an
+# object is flagged 4 times or more, send a mail every 3 flags (4, 7 and 10).
+# If this rule is followed by (10, 5), it will be used only when number of
+# flags is between 4 (included) and 10 (not included), then the "11" rules
+# will apply.
 # A mail will be send if the LIMIT_FOR_OBJECT is reached, ignoring the rules
 # Default is to sent a mail for each flag
 SEND_MAILS_RULES = getattr(conf.settings, "FLAG_SEND_MAILS_RULES", _DEFAULTS['SEND_MAILS_RULES'])

@@ -12,6 +12,7 @@ from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect
 from django.contrib import messages
+from django.core import mail
 
 from flag.models import FlaggedContent, FlagInstance, add_flag
 from flag.tests.models import ModelWithoutAuthor, ModelWithAuthor
@@ -152,7 +153,7 @@ class BaseTestCase(TestCase):
 
 class BaseTestCaseWithData(BaseTestCase):
 
-    USER_BASE = 'test-django-flat'
+    USER_BASE = 'test-django-flag'
 
     def setUp(self):
         """
@@ -504,6 +505,66 @@ class ModelsTestCase(BaseTestCaseWithData):
         self.assertRaises(AttributeError, getattr, self, 'signal_received')
 
         clear_received_signal()
+
+    def test_mails(self):
+        """
+        Test if mails are correctly send
+        """
+        def add(send_mails=True):
+            return FlagInstance.objects.add(self.user, self.model_without_author,
+                comment='comment', send_signal=False, send_mails=send_mails)
+        def reset_outbox():
+            mail.outbox = []
+
+        reset_outbox()
+
+        # no sending mails
+        flag_settings.SEND_MAILS = False
+        add()
+        self.assertEqual(len(mail.outbox), 0)
+
+        # send mails, for all flag
+        flag_settings.SEND_MAILS = True
+        flag_settings.SEND_MAILS_RULES = [
+            (1, 1),
+        ]
+        flag_instance = add()
+        self.assertEqual(len(mail.outbox), 1)
+
+        # test mail content
+        subject = mail.outbox[0].subject
+        body = mail.outbox[0].body
+        model = '%s.%s' % (self.model_without_author._meta.app_label,
+                self.model_without_author._meta.module_name)
+        self.assertTrue(model in subject)
+        self.assertTrue('#%d' % flag_instance.flagged_content.object_id in subject)
+        self.assertTrue(model in body)
+        self.assertTrue("Total flags: 2" in body)
+        self.assertTrue(self.user.username in body)
+
+        # test rules
+        reset_outbox()
+        self._delete_flagged_contents()
+        self._delete_flags()
+        flag_settings.SEND_MAILS_RULES = [
+            (1, 1),
+            (4, 3),
+            (10, 5),
+        ]
+        last_len = 0
+        for i in range(1, 17):
+            add()
+            if i in (1, 2, 3, 4, 7, 10, 15):
+                self.assertEqual(len(mail.outbox), last_len+1)
+                last_len += 1
+            else:
+                self.assertEqual(len(mail.outbox), last_len)
+
+        # sent when max is reached
+        reset_outbox()
+        flag_settings.LIMIT_FOR_OBJECT = 17
+        add()
+        self.assertEqual(len(mail.outbox), 1)
 
     def test_get_for_object(self):
         """
