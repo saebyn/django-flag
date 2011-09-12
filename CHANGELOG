@@ -13,6 +13,7 @@ django-flag CHANGELOG
  * add a test project
  * add many settings (limit flags number, disallow comment)
  * use a real django form, with a security hash
+ * options to send mails, with rules
 
 0.2
 ===
