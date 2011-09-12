@@ -805,7 +805,7 @@ class FlagFormTestCase(BaseTestCaseWithData):
 
         # test missing comment
         data = copy(form_data)
-        data['comment'] = ''
+        del data['comment']
         form = FlagForm(self.model_without_author, data)
         self.assertFalse(form.is_valid())
 
@@ -939,7 +939,11 @@ class FlagViewsTestCase(BaseTestCaseWithData):
 
         # no comment allowed
         flag_settings.ALLOW_COMMENTS = False
-        resp = self.client.post(url, copy(form_data))
+        data = copy(form_data)
+        resp = self.client.post(url, data)
+        self.assertTrue('<ul class="errorlist"><li>You are not allowed to add a comment</li></ul>' in resp.content)
+        del data['comment']
+        resp = self.client.post(url, data)
         flagged_content = FlaggedContent.objects.get_for_object(self.model_without_author)
         self.assertEqual(flagged_content.count, 2)
         self.assertIsNone(flagged_content.flaginstance_set.all()[0].comment)

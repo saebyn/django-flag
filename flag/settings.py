@@ -1,5 +1,8 @@
 from django import conf
 from django.utils.translation import ugettext_lazy as _
+from django.db import models
+
+from flag.utils import get_content_type_tuple
 
 __all__ = ('ALLOW_COMMENTS', 'LIMIT_SAME_OBJECT_FOR_USER', 'LIMIT_FOR_OBJECT', 'MODELS', 'STATUS')
 
@@ -19,7 +22,8 @@ _DEFAULTS = dict(
     SEND_MAILS = False,
     SEND_MAILS_TO = conf.settings.ADMINS,
     SEND_MAILS_FROM = conf.settings.DEFAULT_FROM_EMAIL,
-    SEND_MAILS_RULES = [(1, 1),]
+    SEND_MAILS_RULES = [(1, 1),],
+    MODELS_SETTINGS = {},
 )
 
 # Set FLAG_ALLOW_COMMENTS to False in settings to not allow users to
@@ -76,7 +80,33 @@ SEND_MAILS_FROM = getattr(conf.settings, "FLAG_SEND_MAILS_FROM", _DEFAULTS['SEND
 # Default is to sent a mail for each flag
 SEND_MAILS_RULES = getattr(conf.settings, "FLAG_SEND_MAILS_RULES", _DEFAULTS['SEND_MAILS_RULES'])
 
+# Use FLAG_MODELS_SETTINGS if you want to override the global settings for a
+# specific model.
+# It's a dict with the string represetation of the model (`myapp.mymodel`) as
+# key, and a dict as value. This last dict can have zero, one or more of the
+# settings described in this module (excepted `STATUS`, `MODELS` and of course
+# `MODELS_SETTINGS`), using names WITHOUT the `FLAG_` prefix
+# Default to an empty dict : each model will use the global settings
+MODELS_SETTINGS = getattr(conf.settings, "FLAG_MODELS_SETTINGS", _DEFAULTS['MODELS_SETTINGS'])
 
 # do not send mails if no recipients
 if SEND_MAILS and not SEND_MAILS_TO:
     SEND_MAILS = False
+
+_ONLY_GLOBAL_SETTINGS = ('STATUS', 'MODELS', 'MODELS_SETTINGS',)
+def get_for_model(model, name):
+    """
+    Try to get the `name` settings for a specific model.
+    See `utils.get_content_type_tuple` for description of the `name` parameter
+    The fallback in all case (all exceptions or simply no specific
+    settings) is the basic settings
+    """
+    from flag import settings as flag_settings
+    try:
+        if name in _ONLY_GLOBAL_SETTINGS:
+            raise
+        appl_label, model = get_content_type_tuple(model)
+        return MODELS_SETTINGS[model]['%s.%s' % (appl_label, model)]
+    except:
+        return getattr(flag_settings, name)
+

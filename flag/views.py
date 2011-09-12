@@ -149,7 +149,7 @@ def flag(request):
                         )
 
             # manage comment
-            if flag_settings.ALLOW_COMMENTS:
+            if flag_settings.get_for_model(content_object, 'ALLOW_COMMENTS'):
                 comment = form.cleaned_data['comment']
             else:
                 comment = None

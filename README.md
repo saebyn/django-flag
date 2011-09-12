@@ -61,20 +61,21 @@ FLAG_STATUSES = [
 
 ### FLAG_SEND_MAILS
 Set `FLAG_SEND_MAILS` to `True` if you want to have emails sent when object are flagged.
-See others settings SEND_MAILS_* for more configuration
+See others settings `SEND_MAILS_*` for more configuration
 Default to `False`
 
-### SEND_MAILS_TO
+### FLAG_SEND_MAILS_TO
 Set `FLAG_SEMD_MAILS_TO` to a list of email addresses to sent mails when an object is flagged.
 Each entry can be either a single email address, or a tuple with (name, email address) but only the mail will be used.
 Default to `settings.ADMINS`
 
-### SEND_MAILS_FROM
+
+### FLAG_SEND_MAILS_FROM
 Set `FLAG_SEND_MAILS_FROM` to an email address to use as the send of mails sent when an object is flagged.
 Default to `settings.DEFAULT_FROM_EMAIL`
 
-### SEND_MAILS_RULES
-Set FLAG_SEND_MAILS_RULES to define when to send mails for flags.
+### FLAG_SEND_MAILS_RULES
+Set `FLAG_SEND_MAILS_RULES` to define when to send mails for flags.
 This settings is a list of tuple, each line defining a rule.
 A rule is a tuple with two entries, the first one is the minimum flag for an object for which this rule apply, and the second one is the frequency :
 Example : `(4, 3)` = if an object is flagged 4 times or more, send a mail every 3 flags (4, 7 and 10)
@@ -92,6 +93,27 @@ FLAG_SEND_MAILS_RULES = [
     (10, 5), # send a mail every 5 flags starting to the 10th flag
 ]
 ```
+
+### FLAG_MODELS_SETTINGS
+Use `FLAG_MODELS_SETTINGS` if you want to override the global settings for a specific model.
+It's a dict with the string represetation of the model (`myapp.mymodel`) as key, and a dict as value. This last dict can have zero, one or more of the settings described in this module (except `STATUS`, `MODELS` and of course `MODELS_SETTINGS`), using names WITHOUT the `FLAG_` prefix
+Default to an empty dict : each model will use the global settings
+
+Exemple:
+
+```python
+FLAG_SEND_MAILS = True
+FLAG_SEND_MAILS_TO = ('foo@example.com',)
+FLAG_MODELS_SETTINGS = {
+    'myapp.mymodel': {
+        'SEND_MAILS_TO' = ('bar@example.com', 'baz@example.com',)
+    }
+    'otherapp.othermodel': {
+        'SEND_MAILS' = False,
+    },
+}
+```
+
 
 ## Usage
 

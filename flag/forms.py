@@ -107,8 +107,27 @@ class FlagForm(SecurityForm):
     We use SecurityForm to add a security_hash, so the __init__ need
     the object to flag as the first (name `target_object`) parameter
     """
-    if flag_settings.ALLOW_COMMENTS:
-        comment = forms.CharField(widget=forms.Textarea(), label=_(u'Comment'))
+    comment = forms.CharField(widget=forms.Textarea(), label=_(u'Comment'), required=False)
+
+    def clean(self):
+        """
+        Manage the `ALLOW_COMMENTS` settings
+        """
+        cleaned_data = super(FlagForm, self).clean()
+
+        comment = cleaned_data['comment']
+        content_type = cleaned_data['content_type']
+
+        allow_comments = flag_settings.get_for_model(content_type, 'ALLOW_COMMENTS')
+
+        if allow_comments and not comment:
+            self._errors['comment'] = _('You must had a comment')
+        if not allow_comments and comment:
+            del cleaned_data['comment']
+            raise forms.ValidationError(_('You are not allowed to add a comment'))
+
+        return cleaned_data
+
 
 class FlagFormWithCreator(FlagForm):
     """

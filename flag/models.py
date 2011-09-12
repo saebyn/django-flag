@@ -13,6 +13,7 @@ from django.contrib.sites.models import Site
 from flag import settings as flag_settings
 from flag import signals
 from flag.exceptions import *
+from flag.utils import get_content_type_tuple
 
 class FlaggedContentManager(models.Manager):
     """
@@ -50,39 +51,17 @@ class FlaggedContentManager(models.Manager):
         """
         Return True if the model is listed in the MODELS settings (or if this
         settings is not defined)
-        `content_type` can be : a ContentType id (as integer or string), a
-        ContentType object, a string 'app_label.model_name', a model or an object
+        See `utils.get_content_type_tuple` for description of the
+        `content_Type` parameter
         """
         if flag_settings.MODELS is None:
             return True
 
         # try to find app and model from the content_type
-
-        # check if integer, as integer or string => content_type id
-        if isinstance(content_type, int) or (
-                isinstance(content_type, basestring) and content_type.isdigit()):
-            ctype = ContentType.objects.get_for_id(content_type)
-            app_label, model = ctype.app_label, ctype.model
-
-        # check if string => 'app_label.model_name'
-        elif isinstance(content_type, basestring):
-            try:
-                app_label, model = content_type.split('.', 1)
-            except:
-                return False
-
-        # check if its a content_type object
-        elif isinstance(content_type, ContentType):
-            app_label, model = content_type.app_label, content_type.model
-
-        # check if a model
-        else:
-            try:
-                ctype = ContentType.objects.get_for_model(content_type)
-            except:
-                return False
-            else:
-                app_label, model = ctype.app_label, ctype.model
+        try:
+            app_label, model = get_content_type_tuple(content_type)
+        except:
+            return False
 
         # finally we can check
         model = '%s.%s' % (app_label, model)
@@ -120,6 +99,12 @@ class FlaggedContent(models.Model):
         """
         return u'%s' % repr(self.content_object)
 
+    def content_settings(self, name):
+        """
+        Return the settings `name` for the current content object
+        """
+        return flag_settings.get_for_model(self.content_object, name)
+
     def count_flags_by_user(self, user):
         """
         Helper to get the number of flags on this flagged content by the
@@ -131,9 +116,10 @@ class FlaggedContent(models.Model):
         """
         Check that the LIMIT_FOR_OBJECT is not raised
         """
-        if not flag_settings.LIMIT_FOR_OBJECT:
+        limit = self.content_settings('LIMIT_FOR_OBJECT')
+        if not limit:
             return True
-        return self.count < flag_settings.LIMIT_FOR_OBJECT
+        return self.count < limit
 
     def assert_can_be_flagged(self):
         """
@@ -148,9 +134,10 @@ class FlaggedContent(models.Model):
         """
         if not self.can_be_flagged():
             return False
-        if not flag_settings.LIMIT_SAME_OBJECT_FOR_USER:
+        limit = self.content_settings('LIMIT_SAME_OBJECT_FOR_USER')
+        if not limit:
             return True
-        return self.count_flags_by_user(user) < flag_settings.LIMIT_SAME_OBJECT_FOR_USER
+        return self.count_flags_by_user(user) < limit
 
     def assert_can_be_flagged_by_user(self, user):
         """
@@ -162,10 +149,11 @@ class FlaggedContent(models.Model):
             raise e
         else:
             # do not use self.can_be_flagged_by_user because we need the count
-            if not flag_settings.LIMIT_SAME_OBJECT_FOR_USER:
+            limit = self.content_settings('LIMIT_SAME_OBJECT_FOR_USER')
+            if not limit:
                 return
             count = self.count_flags_by_user(user)
-            if count >= flag_settings.LIMIT_SAME_OBJECT_FOR_USER:
+            if count >= limit:
                 error = ungettext(
                             'You already flagged this',
                             'You already flagged this %(count)d times',
@@ -217,17 +205,18 @@ class FlaggedContent(models.Model):
             )
 
         # send emails if wanted
-        if send_mails and flag_settings.SEND_MAILS:
+        if send_mails and self.content_settings('SEND_MAILS'):
 
             # always send mail if the max flag is reached
-            really_send_mails = flag_settings.LIMIT_FOR_OBJECT \
-                and self.count >= flag_settings.LIMIT_FOR_OBJECT
+            limit = self.content_settings('LIMIT_FOR_OBJECT')
+            really_send_mails = limit \
+                and self.count >= limit
 
             # limit not reached, check rules
             if not really_send_mails:
                 # check rule
                 current_rule = (0, 0)
-                for rule in flag_settings.SEND_MAILS_RULES:
+                for rule in self.content_settings('SEND_MAILS_RULES'):
                     if self.count >= rule[0]:
                         current_rule = rule
                     else:
@@ -283,6 +272,12 @@ class FlagInstance(models.Model):
     class Meta:
         ordering = ('-when_added',)
 
+    def content_settings(self, name):
+        """
+        Return the settings `name` for the object linked to the flagged_content
+        """
+        return self.flagged_content.content_settings(name)
+
     def save(self, *args, **kwargs):
         """
         Save the flag and, if it's a new one, tell it to the flagged_content.
@@ -300,9 +295,10 @@ class FlagInstance(models.Model):
 
         # check comment
         if is_new:
-            if flag_settings.ALLOW_COMMENTS and not self.comment:
+            allow_comments = self.content_settings('ALLOW_COMMENTS')
+            if allow_comments and not self.comment:
                 raise FlagCommentException(_('You must had a comment'))
-            if not flag_settings.ALLOW_COMMENTS and self.comment:
+            if not allow_comments and self.comment:
                 raise FlagCommentException(_('You are not allowed to add a comment'))
 
         super(FlagInstance, self).save(*args, **kwargs)
@@ -316,12 +312,13 @@ class FlagInstance(models.Model):
         """
         Send mails to alert of the current flag
         """
-        if not flag_settings.SEND_MAILS:
+        recipients = self.content_settings('SEND_MAILS_TO')
+        if not (self.content_settings('SEND_MAILS') and recipients):
             return
 
         # prepare recipients
         recipient_list = []
-        for recipient in flag_settings.SEND_MAILS_TO:
+        for recipient in recipients:
             if isinstance(recipient, basestring):
                 recipient_list.append(recipient)
             else:
@@ -354,7 +351,7 @@ class FlagInstance(models.Model):
         send_mail(
             subject = subject,
             message = message,
-            from_email = flag_settings.SEND_MAILS_FROM,
+            from_email = self.content_settings('SEND_MAILS_FROM'),
             recipient_list = recipient_list,
             fail_silently = True
         )
