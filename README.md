@@ -229,7 +229,7 @@ Example, with `an_object` having a `author` field as a *ForeignKey* to the `User
 
 ### Tests
 
-*django-flag* is fully tester. Just run `manage.py test flag` in your project.
+*django-flag* is fully tested. Just run `manage.py test flag` in your project.
 If `django-nose` is installed, it is used to run tests. You can see a coverage of 98%. Admin and some weird `next` parameters are not tested.
 
 *django-flag* also provide a test project, where you can flag users (no other model included).
