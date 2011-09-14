@@ -2,6 +2,8 @@
 
 This app lets users of your site flag content as inappropriate or spam.
 
+PS : the version 0.3 is a big rewrite, but with retrocompatibility kept in mind.
+
 ## Where's Wally ?
 
 The original code is here : https://github.com/pinax/django-flag
@@ -57,6 +59,62 @@ FLAG_STATUSES = [
 ]
 ```
 
+### FLAG_SEND_MAILS
+Set `FLAG_SEND_MAILS` to `True` if you want to have emails sent when object are flagged.
+See others settings `SEND_MAILS_*` for more configuration
+Default to `False`
+
+### FLAG_SEND_MAILS_TO
+Set `FLAG_SEMD_MAILS_TO` to a list of email addresses to sent mails when an object is flagged.
+Each entry can be either a single email address, or a tuple with (name, email address) but only the mail will be used.
+Default to `settings.ADMINS`
+
+
+### FLAG_SEND_MAILS_FROM
+Set `FLAG_SEND_MAILS_FROM` to an email address to use as the send of mails sent when an object is flagged.
+Default to `settings.DEFAULT_FROM_EMAIL`
+
+### FLAG_SEND_MAILS_RULES
+Set `FLAG_SEND_MAILS_RULES` to define when to send mails for flags.
+This settings is a list of tuple, each line defining a rule.
+A rule is a tuple with two entries, the first one is the minimum flag for an object for which this rule apply, and the second one is the frequency :
+Example : `(4, 3)` = if an object is flagged 4 times or more, send a mail every 3 flags (4, 7 and 10)
+If this rule is followed by `(10, 5)`, it will be used only when an object is flagged between 5 (included) and 10 times (not included), then the `10` rules will apply (10, 15, 20...)
+A mail will be send if the LIMIT_FOR_OBJECT is reached, ignoring the rules.
+Default to `[(1, 1)` : send a mail for each flag (if `FLAG_SEND_MAILS` is `True`)
+
+Exemple:
+
+```python
+# mail will be send for 1, 2, 3, 4, 7, 10, 15, 20, 25...
+FLAG_SEND_MAILS_RULES = [
+    (1, 1),  # send a mail for every flag
+    (4, 3),  # send a mail every 3 flags starting to the 5th flag
+    (10, 5), # send a mail every 5 flags starting to the 10th flag
+]
+```
+
+### FLAG_MODELS_SETTINGS
+Use `FLAG_MODELS_SETTINGS` if you want to override the global settings for a specific model.
+It's a dict with the string represetation of the model (`myapp.mymodel`) as key, and a dict as value. This last dict can have zero, one or more of the settings described in this module (except `STATUS`, `MODELS` and of course `MODELS_SETTINGS`), using names WITHOUT the `FLAG_` prefix
+Default to an empty dict : each model will use the global settings
+
+Exemple:
+
+```python
+FLAG_SEND_MAILS = True
+FLAG_SEND_MAILS_TO = ('foo@example.com',)
+FLAG_MODELS_SETTINGS = {
+    'myapp.mymodel': {
+        'SEND_MAILS_TO' = ('bar@example.com', 'baz@example.com',)
+    }
+    'otherapp.othermodel': {
+        'SEND_MAILS' = False,
+    },
+}
+```
+
+
 ## Usage
 
 * add `flag` to your INSTALLED_APPS
@@ -106,7 +164,7 @@ This default template is as simple as :
 You can override the template used by this view by two ways :
 
 * create your own `flag/confirm.html` template
-* create, for each model that can be flagged, a template `flag/confirm_applabel_modelname.html` (by replacing *app_label* and *model_name* by the good values).
+* create, for each model that can be flagged and for which you want a specific template, a template `flag/confirm_applabel_modelname.html` (by replacing *app_label* and *model_name* by the good values, ex. `auth` and `user` for the `User` model in `django.contrib.auth`).
 
 Usage of the filter:
 
@@ -115,7 +173,33 @@ Usage of the filter:
 <a href="{{ anobject|flag_confirm_url }}">flag</a>
 ```
 
-## Other things
+### Signal
+
+When an object is flagged, a signal `content_flagged` is sent, with the `flagged_content` and `flagged_instance` objects (`flagged_instance` should be called `flag_instance` but this is kept for retrocompatibility).
+
+```python
+from flag.signals import content_flagged
+
+def something_was_flagged(sender, signal, flagged_content, flagged_instance):
+    # do something here
+
+content_flagged.connect(something_was_flagged)
+```
+
+This signal is sent only when a *new* flag is created, not when the add fail and not when a flag is updated. And only when it is created via the form. When saved in admin or in a shell, the signal is not sent. In the shell you must pass a `send_signal` parameter (`True`) to the `save` or `add` methods. If you want a signal sent for *every* save of a flag, you can use the django `post_save` one.
+
+### Mails
+
+When an object is flagged, and if the `FLAG_SEND_MAILS` setting is `True`, the `SEND_MAILS_RULES` rules will be analyzed and if one matching the current count of flags for this object, a mail is send to recipients defined in `SEND_MAILS_TO`.
+
+The subjet and body of the sent mail are stored in templates `flag/mail_alert_subject.txt` and `flag/mail_alert_body.txt`.
+
+You can override these temlates by two ways :
+
+* create your own `flag/mail_alert_subject.txt` and/or `flag/mail_alert_body.txt` templates
+* create, for each model that can be flagged and for which you want a specific template, `flag/mail_alert_subject_applabel_modelname.txt` and/or `flag/mail_alert_body_applabel_modelname.txt` (by replacing *app_label* and *model_name* by the good values, ex. `auth` and `user` for the `User` model in `django.contrib.auth`).
+
+## Other things you would want to know
 
 ### More template filters
 
@@ -143,6 +227,18 @@ Example, with `an_object` having a `author` field as a *ForeignKey* to the `User
 <a href="{{ anobject|flag_confirm_url:'author' }}">flag</a>
 ```
 
+### Tests
+
+*django-flag* is fully tested. Just run `manage.py test flag` in your project.
+If `django-nose` is installed, it is used to run tests. You can see a coverage of 98%. Admin and some weird `next` parameters are not tested.
+
+*django-flag* also provide a test project, where you can flag users (no other model included).
+
+### Admin
+
+The admin interface for *django-flag* has been improved a bit : better list and change form with for this one, links to flagged objects and their authors.
+
+
 ## Internal
 
 ### Models
@@ -165,9 +261,11 @@ You can add a flag programmatically with :
 FlagInstance.objects.add(flagging_user, object_to_flag, 'creator field (or None)', 'a comment')
 ```
 
+In previous version, a `add_flag` (in `models.py`) function was the way to add a flag. It is always here, for retrocompatibility, but with a simple call to `FlagInstance.objects.add`.
+
 ### Views and urls
 
-*django-flag* has two urls and views : 
+*django-flag* has two urls and views :
 
 * one to display the confirm page, (url `flag_confirm`, view `confirm`), with some parameters : `app_label`, `object_name`, `object_id`, `creator_field` (the last one is optionnal)
 * one to flag (only POST allowed) (url `flag`, view `flag`), without any parameter
@@ -179,12 +277,5 @@ It provides a security_hash to limit spoofing (we don't directly use `CommentSec
 
 When something forbidden is done (bad security hash, object the user can't flag...), a `FlagBadRequest` (based on `HttpResponseBadRequest`) is returned.
 While in debug mode, this `FlagBadRequest` doesn't return a HTTP error (400), but render a template with more information.
-
-### Tests
-
-*django-flag* is fully tester. Just run `manage.py test flag` in your project.
-If `django-nose` is installed, it is used to run tests. You can see a coverage of 98%. Admin and some weird `next` parameters are not tested.
-
-*django-flag* also provide a test project, where you can flag users (no other model included).
 
 

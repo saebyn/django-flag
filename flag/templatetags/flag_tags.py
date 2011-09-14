@@ -14,10 +14,9 @@ def flag(context, content_object, creator_field=None):
         return {}
     request = context.get('request', None)
     form = get_default_form(content_object, creator_field)
-    return dict(
-            form = form,
-            next = get_next(request)
-        )
+    return dict(form=form,
+                next=get_next(request))
+
 
 @register.filter
 def flag_count(content_object):
@@ -30,6 +29,7 @@ def flag_count(content_object):
     except:
         return 0
 
+
 @register.filter
 def flag_status(content_object):
     """
@@ -40,6 +40,7 @@ def flag_status(content_object):
         return FlaggedContent.objects.get_for_object(content_object).status
     except:
         return None
+
 
 @register.filter
 def can_be_flagged_by(content_object, user):
@@ -55,7 +56,8 @@ def can_be_flagged_by(content_object, user):
         if not FlaggedContent.objects.model_can_be_flagged(content_object):
             return False
         try:
-            flagged_content = FlaggedContent.objects.get_for_object(content_object)
+            flagged_content = FlaggedContent.objects.get_for_object(
+                    content_object)
             return flagged_content.can_be_flagged_by_user(user)
         except ObjectDoesNotExist:
             # no FlaggedContent, we know it canbe flagged
@@ -63,10 +65,12 @@ def can_be_flagged_by(content_object, user):
     except:
         return False
 
+
 @register.filter
 def flag_confirm_url(content_object, creator_field=None):
     """
-    This filter will return the url of the flag confirm page for the given object
+    This filter will return the url of the flag confirm page for the given
+    object
     Usage: {{ some_object|flag_confirm_url }}
     Or, with a creator_field : {{ some_object|flag_confirm_url:"some_field" }}
     """

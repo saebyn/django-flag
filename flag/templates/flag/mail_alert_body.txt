@@ -1,0 +1,16 @@
+{% load i18n %}{% blocktrans with object_id=object.pk %}Hi
+
+A "{{ app_label }}.{{ model_name }}" object (#{{ object_id }}) was just flagged by {{ flagger }}.
+
+The object flagged is: {{ object }}
+
+Total flags: {{ count }}{% endblocktrans %}
+{% with object.get_absolute_url as object_url %}{% if object_url %}
+{% blocktrans with domain=site.domain %}It's url: http://{{ domain }}{{ object_url }}{% endblocktrans %}{% endif %}{% endwith %}
+{% if flag.comment %}{% blocktrans with comment=flag.comment %}
+Comment:
+-----------------------------------------------------------------------
+{{ comment }}
+-----------------------------------------------------------------------{% endblocktrans %}{% endif %}
+
+{% with flagger.get_absolute_url as flagger_url %}{% if flagger_url %}{% blocktrans with domain=site.domain %}The flagger's url: http://{{ domain }}{{ flagger_url }}{% endblocktrans %}{% endif %}{% endwith %}

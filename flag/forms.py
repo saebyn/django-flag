@@ -9,6 +9,7 @@ from django.conf import settings
 
 from flag import settings as flag_settings
 
+
 class SecurityForm(forms.Form):
     """
     Handles the security aspects (anti-spoofing) for comment forms.
@@ -16,10 +17,12 @@ class SecurityForm(forms.Form):
     django.contrib.comments.forms.CommentSecurityForm, but by copying it we
     avoid including the comments models
     """
-    content_type  = forms.CharField(widget=forms.HiddenInput)
-    object_pk     = forms.CharField(widget=forms.HiddenInput)
-    timestamp     = forms.IntegerField(widget=forms.HiddenInput)
-    security_hash = forms.CharField(min_length=40, max_length=40, widget=forms.HiddenInput)
+    content_type = forms.CharField(widget=forms.HiddenInput)
+    object_pk = forms.CharField(widget=forms.HiddenInput)
+    timestamp = forms.IntegerField(widget=forms.HiddenInput)
+    security_hash = forms.CharField(min_length=40,
+                                    max_length=40,
+                                    widget=forms.HiddenInput)
 
     def __init__(self, target_object, data=None, initial=None):
         self.target_object = target_object
@@ -39,9 +42,9 @@ class SecurityForm(forms.Form):
     def clean_security_hash(self):
         """Check the security hash."""
         security_hash_dict = {
-            'content_type' : self.data.get("content_type", ""),
-            'object_pk' : self.data.get("object_pk", ""),
-            'timestamp' : self.data.get("timestamp", ""),
+            'content_type': self.data.get("content_type", ""),
+            'object_pk': self.data.get("object_pk", ""),
+            'timestamp': self.data.get("timestamp", ""),
         }
         expected_hash = self.generate_security_hash(**security_hash_dict)
         actual_hash = self.cleaned_data["security_hash"]
@@ -49,7 +52,8 @@ class SecurityForm(forms.Form):
             # Fallback to Django 1.2 method for compatibility
             # PendingDeprecationWarning <- here to remind us to remove this
             # fallback in Django 1.5
-            expected_hash_old = self._generate_security_hash_old(**security_hash_dict)
+            expected_hash_old = self._generate_security_hash_old(
+                    **security_hash_dict)
             if not constant_time_compare(expected_hash_old, actual_hash):
                 raise forms.ValidationError("Security hash check failed.")
         return actual_hash
@@ -64,11 +68,11 @@ class SecurityForm(forms.Form):
     def generate_security_data(self):
         """Generate a dict of security data for "initial" data."""
         timestamp = int(time.time())
-        security_dict =   {
-            'content_type'  : str(self.target_object._meta),
-            'object_pk'     : str(self.target_object._get_pk_val()),
-            'timestamp'     : str(timestamp),
-            'security_hash' : self.initial_security_hash(timestamp),
+        security_dict = {
+            'content_type': str(self.target_object._meta),
+            'object_pk': str(self.target_object._get_pk_val()),
+            'timestamp': str(timestamp),
+            'security_hash': self.initial_security_hash(timestamp),
         }
         return security_dict
 
@@ -79,9 +83,9 @@ class SecurityForm(forms.Form):
         """
 
         initial_security_dict = {
-            'content_type' : str(self.target_object._meta),
-            'object_pk' : str(self.target_object._get_pk_val()),
-            'timestamp' : str(timestamp),
+            'content_type': str(self.target_object._meta),
+            'object_pk': str(self.target_object._get_pk_val()),
+            'timestamp': str(timestamp),
           }
         return self.generate_security_hash(**initial_security_dict)
 
@@ -107,8 +111,33 @@ class FlagForm(SecurityForm):
     We use SecurityForm to add a security_hash, so the __init__ need
     the object to flag as the first (name `target_object`) parameter
     """
-    if flag_settings.ALLOW_COMMENTS:
-        comment = forms.CharField(widget=forms.Textarea(), label=_(u'Comment'))
+    comment = forms.CharField(widget=forms.Textarea(),
+                              label=_(u'Comment'),
+                              required=False)
+
+    def clean(self):
+        """
+        Manage the `ALLOW_COMMENTS` settings
+        """
+        cleaned_data = super(FlagForm, self).clean()
+
+        content_type = cleaned_data.get('content_type', None)
+
+        if content_type is not None:
+
+            allow_comments = flag_settings.get_for_model(content_type,
+                                                         'ALLOW_COMMENTS')
+            comment = cleaned_data.get('comment', None)
+
+            if allow_comments and not comment:
+                self._errors['comment'] = _('You must had a comment')
+            elif not allow_comments and comment:
+                del cleaned_data['comment']
+                raise forms.ValidationError(
+                        _('You are not allowed to add a comment'))
+
+        return cleaned_data
+
 
 class FlagFormWithCreator(FlagForm):
     """
@@ -116,6 +145,7 @@ class FlagFormWithCreator(FlagForm):
     object to be flagged.
     """
     creator_field = forms.CharField(widget=forms.HiddenInput)
+
 
 def get_default_form(content_object, creator_field=None):
     """
@@ -133,4 +163,3 @@ def get_default_form(content_object, creator_field=None):
         initial['creator_field'] = creator_field
 
     return form_class(target_object=content_object, initial=initial)
-

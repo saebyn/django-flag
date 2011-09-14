@@ -109,7 +109,7 @@ TEMPLATE_DIRS = (
     # Put strings here, like "/home/html/django_templates" or "C:/www/django/templates".
     # Always use forward slashes, even on Windows.
     # Don't forget to use absolute paths, not relative paths.
-    os.path.join(DIRNAME,'templates'),
+    os.path.join(DIRNAME, 'templates'),
 )
 
 INSTALLED_APPS = (
@@ -164,7 +164,12 @@ LOGGING = {
 }
 
 FLAG_ALLOW_COMMENTS = True
-FLAG_LIMIT_SAME_OBJECT_FOR_USER = 15
-FLAG_LIMIT_FOR_OBJECT = 12
+FLAG_LIMIT_SAME_OBJECT_FOR_USER = 5
+FLAG_LIMIT_FOR_OBJECT = 10
 
 FLAG_MODELS = ('auth.user',)
+
+try:
+    from local_settings import *
+except:
+    pass

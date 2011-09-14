@@ -18,9 +18,18 @@ class FlaggedContentAdmin(admin.ModelAdmin):
     readonly_fields = ('content_type', 'object_id')
     raw_id_fields = ('creator', 'moderator')
     if get_version() >= '1.4':
-        fields = (('content_type', 'object_id'), 'creator', 'status', 'count', 'moderator')
+        fields = (('content_type', 'object_id'),
+                  'creator',
+                  'status',
+                  'count',
+                  'moderator')
     else:
-        fields = ('content_type', 'object_id', 'creator', 'status', 'count', 'moderator')
+        fields = ('content_type',
+                  'object_id',
+                  'creator',
+                  'status',
+                  'count',
+                  'moderator')
 
 
 admin.site.register(FlaggedContent, FlaggedContentAdmin)

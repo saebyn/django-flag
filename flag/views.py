@@ -19,6 +19,7 @@ from flag.forms import FlagForm, FlagFormWithCreator, get_default_form
 from flag.models import FlaggedContent, FlagInstance
 from flag.exceptions import FlagException
 
+
 def _validate_next_parameter(request, next):
     """
     Validate the next url and return the path if ok, else None
@@ -28,10 +29,12 @@ def _validate_next_parameter(request, next):
         return parsed.path
     return None
 
+
 def get_next(request):
     """
     Find the next url to redirect the user to
-    Taken from https://github.com/ericflo/django-avatar/blob/master/avatar/views.py
+    Taken from
+    https://github.com/ericflo/django-avatar/blob/master/avatar/views.py
     """
     next = getattr(request, 'POST', {}).get('next',
                 getattr(request, 'GET', {}).get('next',
@@ -41,6 +44,7 @@ def get_next(request):
     if not next:
         next = getattr(request, 'path', None)
     return next
+
 
 class FlagBadRequest(HttpResponseBadRequest):
     """
@@ -52,7 +56,9 @@ class FlagBadRequest(HttpResponseBadRequest):
     def __init__(self, why):
         super(FlagBadRequest, self).__init__()
         if settings.DEBUG:
-            self.content = render_to_string("flag/400-debug.html", {"why": why})
+            self.content = render_to_string("flag/400-debug.html",
+                                            {"why": why})
+
 
 def get_confirm_url_for_object(content_object, creator_field=None):
     """
@@ -60,15 +66,15 @@ def get_confirm_url_for_object(content_object, creator_field=None):
     TODO : raise if the object cannot be flaaged ?
     """
     url_params = dict(
-            app_label = content_object._meta.app_label,
-            object_name = content_object._meta.module_name,
-            object_id = content_object.pk
-        )
+            app_label=content_object._meta.app_label,
+            object_name=content_object._meta.module_name,
+            object_id=content_object.pk)
 
     if creator_field:
         url_params['creator_field'] = creator_field
 
     return reverse('flag_confirm', kwargs=url_params)
+
 
 def get_content_object(ctype, object_pk):
     """
@@ -95,12 +101,14 @@ def get_content_object(ctype, object_pk):
                 (escape(ctype), escape(object_pk)))
     except (ValueError, ValidationError), e:
         return FlagBadRequest(
-            "Attempting go get content-type %r and object PK %r exists raised %s" % \
+            "Attempting go get content-type %r and object PK %r exists "
+                "raised %s" % \
                 (escape(ctype), escape(object_pk), e.__class__.__name__))
     except FlagException, e:
         return FlagBadRequest(
             "Attempting to flag an unauthorized model (%r)" % \
                 escape(ctype))
+
 
 @login_required
 def flag(request):
@@ -113,10 +121,8 @@ def flag(request):
         post_data = request.POST.copy()
 
         object_pk = post_data.get('object_pk')
-        content_object = get_content_object(
-                post_data.get("content_type"),
-                object_pk
-            )
+        content_object = get_content_object(post_data.get("content_type"),
+                                            object_pk)
 
         if (isinstance(content_object, HttpResponseBadRequest)):
                 return content_object
@@ -142,37 +148,35 @@ def flag(request):
             if form_class == FlagFormWithCreator:
                 creator_field = form.cleaned_data['creator_field']
                 if creator_field:
-                    creator = getattr(
-                            content_object,
-                            creator_field,
-                            None
-                        )
+                    creator = getattr(content_object,
+                                      creator_field,
+                                      None)
 
             # manage comment
-            if flag_settings.ALLOW_COMMENTS:
+            if flag_settings.get_for_model(content_object, 'ALLOW_COMMENTS'):
                 comment = form.cleaned_data['comment']
             else:
                 comment = None
 
             # add the flag, but check the user can do it
             try:
-                FlagInstance.objects.add(request.user, content_object, creator, comment)
+                FlagInstance.objects.add(request.user, content_object,
+                    creator, comment, send_signal=True, send_mails=True)
             except FlagException, e:
                 messages.error(request, unicode(e))
             else:
-                messages.success(request, _("You have added a flag. A moderator will review your "
-                        "submission shortly."))
+                messages.success(request, _("You have added a flag. A "
+                        "moderator will review your submission shortly."))
 
         else:
             # form not valid, we return to the confirm page
 
             return confirm(request,
-                app_label = content_type.app_label,
-                object_name = content_type.model,
-                object_id = object_pk,
-                creator_field = post_data.get('creator_field', None),
-                form = form
-            )
+                app_label=content_type.app_label,
+                object_name=content_type.model,
+                object_id=object_pk,
+                creator_field=post_data.get('creator_field', None),
+                form=form)
 
     else:
         return FlagBadRequest("Invalid access")
@@ -186,13 +190,19 @@ def flag(request):
 
 
 @login_required
-def confirm(request, app_label, object_name, object_id, creator_field=None, form=None):
+def confirm(request,
+            app_label,
+            object_name,
+            object_id,
+            creator_field=None,
+            form=None):
     """
     Display a confirmation page for the flagging, with the comment form
     The template rendered is flag/confirm.html but it can be overrided for
     each model by defining a template flag/confirm_applabel_modelname.html
     """
-    content_object = get_content_object('%s.%s' % (app_label, object_name), object_id)
+    content_object = get_content_object('%s.%s' % (app_label, object_name),
+                                        object_id)
     if (isinstance(content_object, HttpResponseBadRequest)):
             return content_object
 
@@ -217,15 +227,11 @@ def confirm(request, app_label, object_name, object_id, creator_field=None, form
 
     # ready to render
     context = dict(
-        content_object = content_object,
-        form = form,
-        next = next,
-    )
+        content_object=content_object,
+        form=form,
+        next=next)
 
-    templates = [
-        'flag/confirm_%s_%s.html' % (app_label, object_name),
-        'flag/confirm.html'
-    ]
+    templates = ['flag/confirm_%s_%s.html' % (app_label, object_name),
+                 'flag/confirm.html']
 
     return render(request, templates, context)
-
