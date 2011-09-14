@@ -105,8 +105,8 @@ def get_for_model(model, name):
     try:
         if name in _ONLY_GLOBAL_SETTINGS:
             raise
-        appl_label, model = get_content_type_tuple(model)
-        return MODELS_SETTINGS[model]['%s.%s' % (appl_label, model)]
+        app_label, model = get_content_type_tuple(model)
+        return MODELS_SETTINGS['%s.%s' % (app_label, model)][name]
     except:
         return getattr(flag_settings, name)
 

@@ -22,6 +22,7 @@ from flag.signals import content_flagged
 from flag.templatetags import flag_tags
 from flag.forms import FlagForm, FlagFormWithCreator, get_default_form
 from flag.views import get_confirm_url_for_object, get_content_object, FlagBadRequest
+from flag.utils import get_content_type_tuple
 
 
 class BaseTestCase(TestCase):
@@ -612,6 +613,39 @@ class ModelsTestCase(BaseTestCaseWithData):
         self.assertEqual(same_flagged_content.status, '2')
         self.assertEqual(same_flagged_content.creator, self.author)
 
+
+class FlagTestSettings(BaseTestCase):
+    """
+    Class to tests settings and settings by model
+    """
+
+    def test_flag_settings(self):
+        """
+        Test settings
+        """
+        model = ModelWithAuthor
+        model_name = 'tests.modelwithauthor'
+        self.assertEqual('.'.join(get_content_type_tuple(model)), model_name)
+
+        # no settings for this model
+        flag_settings.MODELS_SETTINGS = {}
+        flag_settings.SEMD_MAILS = True
+        self.assertEqual(flag_settings.SEMD_MAILS, flag_settings.get_for_model(model_name, 'SEND_MAILS'))
+        self.assertEqual(flag_settings.SEMD_MAILS, flag_settings.get_for_model(model, 'SEND_MAILS'))
+
+        # a setting for this model
+        flag_settings.MODELS_SETTINGS[model_name] = {}
+        flag_settings.MODELS_SETTINGS[model_name]['SEND_MAILS'] = False
+        self.assertNotEqual(flag_settings.SEMD_MAILS, flag_settings.get_for_model(model_name, 'SEND_MAILS'))
+        self.assertNotEqual(flag_settings.SEMD_MAILS, flag_settings.get_for_model(model, 'SEND_MAILS'))
+
+        # forbidden setting
+        flag_settings.MODELS = (model_name,)
+        flag_settings.MODELS_SETTINGS = {}
+        self.assertEqual(flag_settings.MODELS, flag_settings.get_for_model(model_name, 'MODELS'))
+        flag_settings.MODELS_SETTINGS[model_name] = {}
+        flag_settings.MODELS_SETTINGS[model_name]['MODELS'] = ('tests.modelwithoutauthor',)
+        self.assertEqual(flag_settings.MODELS, flag_settings.get_for_model(model_name, 'MODELS'))
 
 
 class FlagTemplateTagsTestCase(BaseTestCaseWithData):
