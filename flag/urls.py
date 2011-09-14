@@ -2,7 +2,7 @@
 Urls for the django-flag app
 Add a line like above to your own urls.py:
     ur(r'^flag/', include('flag.urls')),
-To use the "flag_confirm" we, you can use the "flag_confirm_url" filter
+To use the "flag_confirm" url, you can use the "flag_confirm_url" filter
 in your template, or "get_confirm_url_for_object" helper in flag.views
 """
 

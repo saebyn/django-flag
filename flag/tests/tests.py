@@ -11,7 +11,6 @@ from django.db.models import loading, ObjectDoesNotExist
 from django.conf import settings
 from django.core.urlresolvers import reverse
 from django.http import HttpResponseRedirect
-from django.contrib import messages
 from django.core import mail
 
 from flag.models import FlaggedContent, FlagInstance, add_flag
