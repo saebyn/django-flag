@@ -101,11 +101,14 @@ def get_for_model(model, name):
     settings) is the basic settings
     """
     from flag import settings as flag_settings
-    try:
-        if name in _ONLY_GLOBAL_SETTINGS:
-            raise
-        app_label, model = get_content_type_tuple(model)
-        return MODELS_SETTINGS['%s.%s' % (app_label, model)][name]
-    except:
-        return getattr(flag_settings, name)
+    result = getattr(flag_settings, name)
+    if name not in _ONLY_GLOBAL_SETTINGS:
+        try:
+            model_id = '%s.%s' % get_content_type_tuple(model)
+        except:
+            pass
+        else:
+            if name in MODELS_SETTINGS.get(model_id, {}):
+                result = MODELS_SETTINGS[model_id][name]
+    return result
 

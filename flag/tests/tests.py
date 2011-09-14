@@ -646,6 +646,9 @@ class FlagTestSettings(BaseTestCase):
         flag_settings.MODELS_SETTINGS[model_name]['MODELS'] = ('tests.modelwithoutauthor',)
         self.assertEqual(flag_settings.MODELS, flag_settings.get_for_model(model_name, 'MODELS'))
 
+        # inexistint setting
+        self.assertRaises(AttributeError, flag_settings.get_for_model, model_name, 'INEXISTING_SETTINGS')
+
 
 class FlagTemplateTagsTestCase(BaseTestCaseWithData):
     """
