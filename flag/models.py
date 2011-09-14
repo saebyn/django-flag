@@ -215,16 +215,16 @@ class FlaggedContent(models.Model):
             # limit not reached, check rules
             if not really_send_mails:
                 # check rule
-                current_rule = (0, 0)
-                for rule in self.content_settings('SEND_MAILS_RULES'):
-                    if self.count >= rule[0]:
-                        current_rule = rule
+                current_min_count, current_step = 0, 0
+                for min_count, step in self.content_settings('SEND_MAILS_RULES'):
+                    if self.count >= min_count:
+                        current_min_count, current_step = min_count, step
                     else:
                         break
 
                 # do we need to send mail ?
-                if current_rule[1] and \
-                        not (self.count - current_rule[0]) % current_rule[1]:
+                if current_step and \
+                        not (self.count - current_min_count) % current_step:
                     really_send_mails = True
 
             # finally send mails if we really want to do it
