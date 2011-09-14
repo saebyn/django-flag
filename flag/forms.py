@@ -115,16 +115,18 @@ class FlagForm(SecurityForm):
         """
         cleaned_data = super(FlagForm, self).clean()
 
-        comment = cleaned_data['comment']
-        content_type = cleaned_data['content_type']
+        content_type = cleaned_data.get('content_type', None)
 
-        allow_comments = flag_settings.get_for_model(content_type, 'ALLOW_COMMENTS')
+        if content_type is not None:
 
-        if allow_comments and not comment:
-            self._errors['comment'] = _('You must had a comment')
-        if not allow_comments and comment:
-            del cleaned_data['comment']
-            raise forms.ValidationError(_('You are not allowed to add a comment'))
+            allow_comments = flag_settings.get_for_model(content_type, 'ALLOW_COMMENTS')
+            comment = cleaned_data.get('comment', None)
+
+            if allow_comments and not comment:
+                self._errors['comment'] = _('You must had a comment')
+            elif not allow_comments and comment:
+                del cleaned_data['comment']
+                raise forms.ValidationError(_('You are not allowed to add a comment'))
 
         return cleaned_data
 
