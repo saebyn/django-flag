@@ -15,6 +15,7 @@ from flag import signals
 from flag.exceptions import *
 from flag.utils import get_content_type_tuple
 
+
 class FlaggedContentManager(models.Manager):
     """
     Manager for the FlaggedContent models
@@ -25,12 +26,13 @@ class FlaggedContentManager(models.Manager):
         Helper to get a FlaggedContent instance for the given object
         """
         content_type = ContentType.objects.get_for_model(content_object)
-        return self.get(
-                content_type__id=content_type.id,
-                object_id=content_object.id
-            )
+        return self.get(content_type__id=content_type.id,
+                        object_id=content_object.id)
 
-    def get_or_create_for_object(self, content_object, content_creator=None, status=None):
+    def get_or_create_for_object(self,
+                                 content_object,
+                                 content_creator=None,
+                                 status=None):
         """
         A wrapper around get_or_create to easily manage the fields
         `content_creator` and `status` are only set when creating the object
@@ -41,10 +43,9 @@ class FlaggedContentManager(models.Manager):
         if status is not None:
             defaults['status'] = status
         flagged_content, created = FlaggedContent.objects.get_or_create(
-            content_type = ContentType.objects.get_for_model(content_object),
-            object_id = content_object.id,
-            defaults = defaults
-        )
+            content_type=ContentType.objects.get_for_model(content_object),
+            object_id=content_object.id,
+            defaults=defaults)
         return flagged_content, created
 
     def model_can_be_flagged(self, content_type):
@@ -72,7 +73,8 @@ class FlaggedContentManager(models.Manager):
         Raise an acception if the "model_can_be_flagged" method return False
         """
         if not self.model_can_be_flagged(content_type):
-            raise ModelCannotBeFlaggedException(_('This model cannot be flagged'))
+            raise ModelCannotBeFlaggedException(
+                    _('This model cannot be flagged'))
 
 
 class FlaggedContent(models.Model):
@@ -81,9 +83,19 @@ class FlaggedContent(models.Model):
     object_id = models.PositiveIntegerField()
     content_object = generic.GenericForeignKey("content_type", "object_id")
 
-    creator = models.ForeignKey(User, related_name="flagged_content", null=True, blank=True) # user who created flagged content -- this is kept in model so it outlives content
-    status = models.CharField(max_length=1, choices=flag_settings.STATUS, default=flag_settings.STATUS[0][0])
-    moderator = models.ForeignKey(User, null=True, related_name="moderated_content") # moderator responsible for last status change
+    # user who created flagged content -- this is kept in model so it outlives
+    # content
+    creator = models.ForeignKey(User,
+                                related_name="flagged_content",
+                                null=True,
+                                blank=True)
+    status = models.CharField(max_length=1,
+                              choices=flag_settings.STATUS,
+                              default=flag_settings.STATUS[0][0])
+    # moderator responsible for last status change
+    moderator = models.ForeignKey(User,
+                                  null=True,
+                                  related_name="moderated_content")
     count = models.PositiveIntegerField(default=0)
 
     # manager
@@ -157,10 +169,7 @@ class FlaggedContent(models.Model):
                 error = ungettext(
                             'You already flagged this',
                             'You already flagged this %(count)d times',
-                            count
-                        ) % {
-                            'count': count
-                        }
+                            count) % {'count': count}
                 raise ContentAlreadyFlaggedByUserException(error)
 
     def get_content_object_admin_url(self):
@@ -170,9 +179,8 @@ class FlaggedContent(models.Model):
         if self.content_object:
             return urlresolvers.reverse("admin:%s_%s_change" % (
                     self.content_object._meta.app_label,
-                    self.content_object._meta.module_name
-                ), args=(self.object_id,)
-            )
+                    self.content_object._meta.module_name),
+                args=(self.object_id,))
 
     def save(self, *args, **kwargs):
         """
@@ -199,10 +207,9 @@ class FlaggedContent(models.Model):
         # send a signal if wanted
         if send_signal:
             signals.content_flagged.send(
-                sender = FlaggedContent,
-                flagged_content = self,
-                flagged_instance = flag_instance,
-            )
+                sender=FlaggedContent,
+                flagged_content=self,
+                flagged_instance=flag_instance)
 
         # send emails if wanted
         if send_mails and self.content_settings('SEND_MAILS'):
@@ -216,7 +223,8 @@ class FlaggedContent(models.Model):
             if not really_send_mails:
                 # check rule
                 current_min_count, current_step = 0, 0
-                for min_count, step in self.content_settings('SEND_MAILS_RULES'):
+                for min_count, step in self.content_settings(
+                        'SEND_MAILS_RULES'):
                     if self.count >= min_count:
                         current_min_count, current_step = min_count, step
                     else:
@@ -245,15 +253,16 @@ class FlagInstanceManager(models.Manager):
         """
 
         # get or create the FlaggedContent object
-        flagged_content, created = FlaggedContent.objects.get_or_create_for_object(
-                content_object, content_creator, status)
+        flagged_content, created = FlaggedContent.objects.\
+                get_or_create_for_object(content_object,
+                                         content_creator,
+                                         status)
 
         # add the flag
         flag_instance = FlagInstance(
-            flagged_content = flagged_content,
-            user = user,
-            comment = comment
-        )
+            flagged_content=flagged_content,
+            user=user,
+            comment=comment)
         flag_instance.save(send_signal=send_signal, send_mails=send_mails)
 
         return flag_instance
@@ -262,10 +271,10 @@ class FlagInstanceManager(models.Manager):
 class FlagInstance(models.Model):
 
     flagged_content = models.ForeignKey(FlaggedContent)
-    user = models.ForeignKey(User) # user flagging the content
+    user = models.ForeignKey(User)  # user flagging the content
     when_added = models.DateTimeField(default=datetime.now)
-    when_recalled = models.DateTimeField(null=True) # if recalled at all
-    comment = models.TextField(null=True, blank=True) # comment by the flagger
+    when_recalled = models.DateTimeField(null=True)  # if recalled at all
+    comment = models.TextField(null=True, blank=True)  # comment by the flagger
 
     objects = FlagInstanceManager()
 
@@ -299,7 +308,8 @@ class FlagInstance(models.Model):
             if allow_comments and not self.comment:
                 raise FlagCommentException(_('You must had a comment'))
             if not allow_comments and self.comment:
-                raise FlagCommentException(_('You are not allowed to add a comment'))
+                raise FlagCommentException(
+                        _('You are not allowed to add a comment'))
 
         super(FlagInstance, self).save(*args, **kwargs)
 
@@ -328,33 +338,29 @@ class FlagInstance(models.Model):
         app_label = self.flagged_content.content_object._meta.app_label
         model_name = self.flagged_content.content_object._meta.module_name
         context = dict(
-            flag = self,
-            app_label = app_label,
-            model_name = model_name,
-            count = self.flagged_content.count,
-            object = self.flagged_content.content_object,
-            flagger = self.user,
-            site = Site.objects.get_current(),
-        )
+            flag=self,
+            app_label=app_label,
+            model_name=model_name,
+            count=self.flagged_content.count,
+            object=self.flagged_content.content_object,
+            flagger=self.user,
+            site=Site.objects.get_current())
         subject = render_to_string([
                 'flag/mail_alert_subject_%s_%s.html' % (app_label, model_name),
-                'flag/mail_alert_subject.txt',
-            ], context
-        ).replace("\n", " ").replace("\r", " ")
+                'flag/mail_alert_subject.txt'],
+            context).replace("\n", " ").replace("\r", " ")
         message = render_to_string([
                 'flag/mail_alert_body_%s_%s.html' % (app_label, model_name),
-                'flag/mail_alert_body.txt',
-            ], context
-        )
+                'flag/mail_alert_body.txt'],
+            context)
 
         # really send the mails !
         send_mail(
-            subject = subject,
-            message = message,
-            from_email = self.content_settings('SEND_MAILS_FROM'),
-            recipient_list = recipient_list,
-            fail_silently = True
-        )
+            subject=subject,
+            message=message,
+            from_email=self.content_settings('SEND_MAILS_FROM'),
+            recipient_list=recipient_list,
+            fail_silently=True)
 
 
 def add_flag(flagger, content_type, object_id, content_creator, comment,

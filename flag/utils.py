@@ -1,5 +1,6 @@
 from django.contrib.contenttypes.models import ContentType
 
+
 def get_content_type_tuple(content_type):
     """
     Return a tuple with `(app_name, model_name)` from "something"
@@ -31,7 +32,8 @@ def get_content_type_tuple(content_type):
     # check if a model (or an instance of a model)
     else:
         try:
-            app_label, model = content_type._meta.app_label, content_type._meta.module_name
+            app_label = content_type._meta.app_label
+            model = content_type._meta.module_name
         except Exception, e:
             raise e
 

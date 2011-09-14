@@ -3,41 +3,51 @@ from django.utils.translation import ugettext_lazy as _
 
 from flag.utils import get_content_type_tuple
 
-__all__ = ('ALLOW_COMMENTS', 'LIMIT_SAME_OBJECT_FOR_USER', 'LIMIT_FOR_OBJECT', 'MODELS', 'STATUS')
+__all__ = ('ALLOW_COMMENTS',
+           'LIMIT_SAME_OBJECT_FOR_USER',
+           'LIMIT_FOR_OBJECT',
+           'MODELS',
+           'STATUS')
 
 # keep the default values
 _DEFAULTS = dict(
-    ALLOW_COMMENTS = True,
-    LIMIT_SAME_OBJECT_FOR_USER = 0,
-    LIMIT_FOR_OBJECT = 0,
-    MODELS = None,
-    STATUS = [
+    ALLOW_COMMENTS=True,
+    LIMIT_SAME_OBJECT_FOR_USER=0,
+    LIMIT_FOR_OBJECT=0,
+    MODELS=None,
+    STATUS=[
         ("1", _("flagged")),
         ("2", _("flag rejected by moderator")),
         ("3", _("creator notified")),
         ("4", _("content removed by creator")),
         ("5", _("content removed by moderator")),
     ],
-    SEND_MAILS = False,
-    SEND_MAILS_TO = conf.settings.ADMINS,
-    SEND_MAILS_FROM = conf.settings.DEFAULT_FROM_EMAIL,
-    SEND_MAILS_RULES = [(1, 1),],
-    MODELS_SETTINGS = {},
+    SEND_MAILS=False,
+    SEND_MAILS_TO=conf.settings.ADMINS,
+    SEND_MAILS_FROM=conf.settings.DEFAULT_FROM_EMAIL,
+    SEND_MAILS_RULES=[(1, 1), ],
+    MODELS_SETTINGS={},
 )
 
 # Set FLAG_ALLOW_COMMENTS to False in settings to not allow users to
 # comment their flags (True by default)
-ALLOW_COMMENTS = getattr(conf.settings, 'FLAG_ALLOW_COMMENTS', _DEFAULTS['ALLOW_COMMENTS'])
+ALLOW_COMMENTS = getattr(conf.settings,
+                         'FLAG_ALLOW_COMMENTS',
+                         _DEFAULTS['ALLOW_COMMENTS'])
 
-# Set FLAG_LIMIT_SAME_OBJECT_FOR_USER to a number in settings to limit the times
-# a user can flag a single object
+# Set FLAG_LIMIT_SAME_OBJECT_FOR_USER to a number in settings to limit the
+# times a user can flag a single object
 # If 0, there is no limit
-LIMIT_SAME_OBJECT_FOR_USER = getattr(conf.settings, 'FLAG_LIMIT_SAME_OBJECT_FOR_USER', _DEFAULTS['LIMIT_SAME_OBJECT_FOR_USER'])
+LIMIT_SAME_OBJECT_FOR_USER = getattr(conf.settings,
+                                     'FLAG_LIMIT_SAME_OBJECT_FOR_USER',
+                                     _DEFAULTS['LIMIT_SAME_OBJECT_FOR_USER'])
 
 # Set FLAG_LIMIT_FOR_OBJECT to a number in settings to limit the times an
 # object can be flagged
 # If 0, there is no limit
-LIMIT_FOR_OBJECT = getattr(conf.settings, 'FLAG_LIMIT_FOR_OBJECT', _DEFAULTS['LIMIT_FOR_OBJECT'])
+LIMIT_FOR_OBJECT = getattr(conf.settings,
+                           'FLAG_LIMIT_FOR_OBJECT',
+                           _DEFAULTS['LIMIT_FOR_OBJECT'])
 
 # Set FLAG_MODELS to a list/tuple of models in your settings to limit the
 # models that can be flagged. The syntax to use is a string for each model :
@@ -60,12 +70,16 @@ SEND_MAILS = getattr(conf.settings, "FLAG_SEND_MAILS", _DEFAULTS['SEND_MAILS'])
 # Each entry can be either a single email address, or a tuple with (name, email
 # address) but only the mail will be used
 # The default is the ADMINS setting
-SEND_MAILS_TO = getattr(conf.settings, "FLAG_SEND_MAILS_TO", _DEFAULTS['SEND_MAILS_TO'])
+SEND_MAILS_TO = getattr(conf.settings,
+                        "FLAG_SEND_MAILS_TO",
+                        _DEFAULTS['SEND_MAILS_TO'])
 
 # Set FLAG_SEND_MAILS_FROM to an email address to use as the send of mails
 # sent when an object is flagged.
 # Default to the DEFAULT_FROM_EMAIL setting
-SEND_MAILS_FROM = getattr(conf.settings, "FLAG_SEND_MAILS_FROM", _DEFAULTS['SEND_MAILS_FROM'])
+SEND_MAILS_FROM = getattr(conf.settings,
+                          "FLAG_SEND_MAILS_FROM",
+                          _DEFAULTS['SEND_MAILS_FROM'])
 
 # Set FLAG_SEND_MAILS_RULES to define when to send mails for flags. This
 # settings is a list of tuple, each line defining a rule. A rule is a tuple
@@ -77,7 +91,9 @@ SEND_MAILS_FROM = getattr(conf.settings, "FLAG_SEND_MAILS_FROM", _DEFAULTS['SEND
 # will apply.
 # A mail will be send if the LIMIT_FOR_OBJECT is reached, ignoring the rules
 # Default is to sent a mail for each flag
-SEND_MAILS_RULES = getattr(conf.settings, "FLAG_SEND_MAILS_RULES", _DEFAULTS['SEND_MAILS_RULES'])
+SEND_MAILS_RULES = getattr(conf.settings,
+                           "FLAG_SEND_MAILS_RULES",
+                           _DEFAULTS['SEND_MAILS_RULES'])
 
 # Use FLAG_MODELS_SETTINGS if you want to override the global settings for a
 # specific model.
@@ -86,13 +102,17 @@ SEND_MAILS_RULES = getattr(conf.settings, "FLAG_SEND_MAILS_RULES", _DEFAULTS['SE
 # settings described in this module (excepted `STATUS`, `MODELS` and of course
 # `MODELS_SETTINGS`), using names WITHOUT the `FLAG_` prefix
 # Default to an empty dict : each model will use the global settings
-MODELS_SETTINGS = getattr(conf.settings, "FLAG_MODELS_SETTINGS", _DEFAULTS['MODELS_SETTINGS'])
+MODELS_SETTINGS = getattr(conf.settings,
+                          "FLAG_MODELS_SETTINGS",
+                          _DEFAULTS['MODELS_SETTINGS'])
 
 # do not send mails if no recipients
 if SEND_MAILS and not SEND_MAILS_TO:
     SEND_MAILS = False
 
 _ONLY_GLOBAL_SETTINGS = ('STATUS', 'MODELS', 'MODELS_SETTINGS',)
+
+
 def get_for_model(model, name):
     """
     Try to get the `name` settings for a specific model.
@@ -111,4 +131,3 @@ def get_for_model(model, name):
             if name in MODELS_SETTINGS.get(model_id, {}):
                 result = MODELS_SETTINGS[model_id][name]
     return result
-

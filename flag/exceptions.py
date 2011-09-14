@@ -1,4 +1,9 @@
-__all__ = ('FlagException', 'ModelCannotBeFlaggedException', 'ContentAlreadyFlaggedByUserException', 'ContentFlaggedEnoughException', 'FlagCommentException')
+__all__ = ('FlagException',
+           'ModelCannotBeFlaggedException',
+           'ContentAlreadyFlaggedByUserException',
+           'ContentFlaggedEnoughException',
+           'FlagCommentException')
+
 
 class FlagException(Exception):
     """
@@ -6,12 +11,14 @@ class FlagException(Exception):
     """
     pass
 
+
 class ModelCannotBeFlaggedException(FlagException):
     """
     Exception raised when a user try to flag a object that is not defined
     in the FLAG_MODELS settings (only if this settings if defined)
     """
     pass
+
 
 class ContentAlreadyFlaggedByUserException(FlagException):
     """
@@ -21,6 +28,7 @@ class ContentAlreadyFlaggedByUserException(FlagException):
     """
     pass
 
+
 class ContentFlaggedEnoughException(FlagException):
     """
     Exception raised when someone try to flag an object which is
@@ -28,10 +36,10 @@ class ContentFlaggedEnoughException(FlagException):
     """
     pass
 
+
 class FlagCommentException(FlagException):
     """
     Exception raised when someone try to add a comment while flagging an
     object but with the ALLOW_COMMENTS settings to False (or the opposite)
     """
     pass
-
