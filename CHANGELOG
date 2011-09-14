@@ -14,6 +14,7 @@ django-flag CHANGELOG
  * add many settings (limit flags number, disallow comment)
  * use a real django form, with a security hash
  * options to send mails, with rules
+ * settings can now be set for each flaggable model
 
 0.2
 ===
