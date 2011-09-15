@@ -174,13 +174,55 @@ class FlaggedContent(models.Model):
 
     def get_content_object_admin_url(self):
         """
-        Return the admin url to the content object
+        Return the admin url for the content object
         """
+        url = None
         if self.content_object:
-            return urlresolvers.reverse("admin:%s_%s_change" % (
-                    self.content_object._meta.app_label,
-                    self.content_object._meta.module_name),
-                args=(self.object_id,))
+            try:
+                url = urlresolvers.reverse("admin:%s_%s_change" % (
+                        self.content_object._meta.app_label,
+                        self.content_object._meta.module_name),
+                    args=(self.object_id,))
+            except urlresolvers.NoReverseMatch:
+                pass
+        return url
+
+    def get_content_object_absolute_url(self):
+        """
+        Return the absolute url for the content object
+        """
+        url = None
+        if self.content_object:
+            try:
+                url = self.content_object.get_absolute_url()
+            except (AttributeError,  urlresolvers.NoReverseMatch):
+                pass
+        return url
+
+    def get_creator_admin_url(self):
+        """
+        Return the admin url for the content object's creator
+        """
+        url = None
+        if self.creator:
+            try:
+                url = urlresolvers.reverse("admin:auth_user_change",
+                    args=(self.creator_id,))
+            except urlresolvers.NoReverseMatch:
+                pass
+        return url
+
+    def get_creator_absolute_url(self):
+        """
+        Return the absolute url for the content object's creator
+        """
+        url = None
+        if self.creator:
+            try:
+                url = self.content_object.creator.get_absolute_url()
+            except (AttributeError,  urlresolvers.NoReverseMatch):
+                pass
+        return url
 
     def save(self, *args, **kwargs):
         """
@@ -337,18 +379,37 @@ class FlagInstance(models.Model):
         # subject and body from templates
         app_label = self.flagged_content.content_object._meta.app_label
         model_name = self.flagged_content.content_object._meta.module_name
+
         context = dict(
             flag=self,
+            flagger=self.user,
+
             app_label=app_label,
             model_name=model_name,
-            count=self.flagged_content.count,
             object=self.flagged_content.content_object,
-            flagger=self.user,
+            count=self.flagged_content.count,
+
+            object_url=self.flagged_content.get_content_object_absolute_url(),
+            object_admin_url=self.flagged_content.\
+                    get_content_object_admin_url(),
+
+            flagger_url=self.get_flagger_absolute_url(),
+            flagger_admin_url=self.get_flagger_admin_url(),
+
             site=Site.objects.get_current())
+
+        if self.flagged_content.creator:
+            context.update(dict(
+                creator=self.flagged_content.creator,
+                creator_url=self.flagged_content.get_creator_absolute_url(),
+                creator_admin_url=self.flagged_content.\
+                        get_creator_admin_url()))
+
         subject = render_to_string([
                 'flag/mail_alert_subject_%s_%s.html' % (app_label, model_name),
                 'flag/mail_alert_subject.txt'],
             context).replace("\n", " ").replace("\r", " ")
+
         message = render_to_string([
                 'flag/mail_alert_body_%s_%s.html' % (app_label, model_name),
                 'flag/mail_alert_body.txt'],
@@ -361,6 +422,29 @@ class FlagInstance(models.Model):
             from_email=self.content_settings('SEND_MAILS_FROM'),
             recipient_list=recipient_list,
             fail_silently=True)
+
+    def get_flagger_admin_url(self):
+        """
+        Return the admin url for the flagger
+        """
+        url = None
+        try:
+            url = urlresolvers.reverse("admin:auth_user_change",
+                args=(self.user_id,))
+        except urlresolvers.NoReverseMatch:
+            pass
+        return url
+
+    def get_flagger_absolute_url(self):
+        """
+        Return the absolute url for the flagger
+        """
+        url = None
+        try:
+            url = self.user.get_absolute_url()
+        except (AttributeError,  urlresolvers.NoReverseMatch):
+            pass
+        return url
 
 
 def add_flag(flagger, content_type, object_id, content_creator, comment,
