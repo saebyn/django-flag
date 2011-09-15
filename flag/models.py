@@ -364,7 +364,6 @@ class FlagInstance(models.Model):
         """
         Send mails to alert of the current flag
         """
-        import pdb; pdb.set_trace()
         recipients = self.content_settings('SEND_MAILS_TO')
         if not (self.content_settings('SEND_MAILS') and recipients):
             return
