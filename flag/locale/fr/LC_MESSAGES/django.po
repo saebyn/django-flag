@@ -1,0 +1,181 @@
+# FR translation for django-flag.
+# Copyright (C) 2011 Stephane Angel
+# This file is distributed under the same license as the django-flag package.
+# Stephane Angel <s.angel@twidi.com>, 2011.
+#
+#, fuzzy
+msgid ""
+msgstr ""
+"Project-Id-Version: 0.3\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2011-09-15 10:23-0500\n"
+"PO-Revision-Date: 2011-09-15 10:17-0500\n"
+"Last-Translator: Stephane Angel <s.angel@twidi.com>\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
+"Language: \n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n > 1)\n"
+
+#: forms.py:115
+msgid "Comment"
+msgstr "Commentaire"
+
+#: forms.py:133 models.py:351
+msgid "You must add a comment"
+msgstr "Vous devez ajouter un commentaire"
+
+#: forms.py:137 models.py:354
+msgid "You are not allowed to add a comment"
+msgstr "Vous n'êtes pas autorisé à ajouter un commentaire"
+
+#: models.py:77
+msgid "This model cannot be flagged"
+msgstr "Ce contenu ne peut être signalé"
+
+#: models.py:141
+msgid "Flag limit raised"
+msgstr "Limite du nombre de signalements atteinte"
+
+#: models.py:170
+#, python-format
+msgid "You already flagged this"
+msgid_plural "You already flagged this %(count)d times"
+msgstr[0] "Vous avez déjà signalé ce contenu"
+msgstr[1] "Vous avez déjà signalé ce contenu %(count)d fois"
+
+#: settings.py:19
+msgid "flagged"
+msgstr "signalé"
+
+#: settings.py:20
+msgid "flag rejected by moderator"
+msgstr "signalement rejeté par un modérateur"
+
+#: settings.py:21
+msgid "creator notified"
+msgstr "auteur notifié"
+
+#: settings.py:22
+msgid "content removed by creator"
+msgstr "contenu retiré par l'auteur"
+
+#: settings.py:23
+msgid "content removed by moderator"
+msgstr "contenu retiré par un modérateur"
+
+#: views.py:168
+msgid "You have added a flag. A moderator will review your submission shortly."
+msgstr ""
+"Vous avez signalé ce contenu. Un modérateur en prendra connaissance très "
+"prochainement."
+
+#: templates/admin/flag/flaggedcontent/change_form.html:9
+#, python-format
+msgid "Flagged object: %(flagged_object)s"
+msgstr "Contenu signalé : %(flagged_object)s"
+
+#: templates/admin/flag/flaggedcontent/change_form.html:11
+#: templates/admin/flag/flaggedcontent/change_form.html:20
+msgid "admin link"
+msgstr "lien dans l'admin"
+
+#: templates/admin/flag/flaggedcontent/change_form.html:13
+#: templates/admin/flag/flaggedcontent/change_form.html:22
+msgid "site link"
+msgstr "lien sur le site"
+
+#: templates/admin/flag/flaggedcontent/change_form.html:19
+#, python-format
+msgid "Creator: %(creator)s"
+msgstr "Auteur: %(creator)s"
+
+#: templates/flag/mail_alert_body.txt:1
+#, python-format
+msgid ""
+"Hi\n"
+"\n"
+"A \"%(app_label)s.%(model_name)s\" object (#%(object_id)s) was just "
+"flagged:\n"
+"\n"
+"    %(object)s\n"
+"\n"
+"    Total flags: %(count)s"
+msgstr ""
+"Bonjour\n"
+"\n"
+"Un contenu de type \"%(app_label)s.%(model_name)s\" (n° %(object_id)s) vient "
+"d'être signalé :\n"
+"\n"
+"    %(object)s\n"
+"\n"
+"    Nombre total de signalements : %(count)s"
+
+#: templates/flag/mail_alert_body.txt:8
+#, python-format
+msgid "Its url: http://%(domain)s%(object_url)s"
+msgstr "Sa page : http://%(domain)s%(object_url)s"
+
+#: templates/flag/mail_alert_body.txt:9
+#, python-format
+msgid "Its admin url: http://%(domain)s%(object_admin_url)s"
+msgstr "Sa page dans l'admin : http://%(domain)s%(object_admin_url)s"
+
+#: templates/flag/mail_alert_body.txt:10
+#, python-format
+msgid ""
+"\n"
+"Comment:\n"
+"-----------------------------------------------------------------------\n"
+"%(comment)s\n"
+"-----------------------------------------------------------------------"
+msgstr ""
+"\n"
+"Commentaire :\n"
+"-----------------------------------------------------------------------\n"
+"%(comment)s\n"
+"-----------------------------------------------------------------------"
+
+#: templates/flag/mail_alert_body.txt:16
+#, python-format
+msgid "The flag's author is: %(flagger)s"
+msgstr "L'auteur du signalement est : %(flagger)s"
+
+#: templates/flag/mail_alert_body.txt:17
+#, python-format
+msgid "His url: http://%(domain)s%(flagger_url)s"
+msgstr "Sa page : http://%(domain)s%(flagger_url)s"
+
+#: templates/flag/mail_alert_body.txt:18
+#, python-format
+msgid "His admin url: http://%(domain)s%(flagger_admin_url)s"
+msgstr "Sa page dans l'admin : http://%(domain)s%(flagger_admin_url)s"
+
+#: templates/flag/mail_alert_body.txt:20
+#, python-format
+msgid "The flagged object was created by %(creator)s"
+msgstr "Le contenu signalé a été créé par %(creator)s"
+
+#: templates/flag/mail_alert_body.txt:21
+#, python-format
+msgid "His url: http://%(domain)s%(creator_url)s"
+msgstr "Sa page : http://%(domain)s%(creator_url)s"
+
+#: templates/flag/mail_alert_body.txt:22
+#, python-format
+msgid "His admin url: http://%(domain)s%(creator_admin_url)s"
+msgstr "Sa page dans l'admin : http://%(domain)s%(creator_admin_url)s"
+
+#: templates/flag/mail_alert_subject.txt:1
+#, python-format
+msgid "Object %(app_label)s.%(model_name)s #%(object_id)s was just flagged"
+msgid_plural ""
+"Object %(app_label)s.%(model_name)s #%(object_id)s was just flagged "
+"(%(count)s times in total)"
+msgstr[0] ""
+"Le contenu de type %(app_label)s.%(model_name)s n°%(object_id)s vient d'être "
+"signalé"
+msgstr[1] ""
+"Le contenu de type %(app_label)s.%(model_name)s n°%(object_id)s vient d'être "
+"signalé (%(count)s fois au total)"
