@@ -306,7 +306,7 @@ class FlagInstance(models.Model):
         if is_new:
             allow_comments = self.content_settings('ALLOW_COMMENTS')
             if allow_comments and not self.comment:
-                raise FlagCommentException(_('You must had a comment'))
+                raise FlagCommentException(_('You must add a comment'))
             if not allow_comments and self.comment:
                 raise FlagCommentException(
                         _('You are not allowed to add a comment'))
