@@ -130,7 +130,7 @@ class FlagForm(SecurityForm):
             comment = cleaned_data.get('comment', None)
 
             if allow_comments and not comment:
-                self._errors['comment'] = _('You must add a comment')
+                self._errors['comment'] = self.error_class([_('You must add a comment')])
             elif not allow_comments and comment:
                 del cleaned_data['comment']
                 raise forms.ValidationError(
