@@ -364,6 +364,7 @@ class FlagInstance(models.Model):
         """
         Send mails to alert of the current flag
         """
+        import pdb; pdb.set_trace()
         recipients = self.content_settings('SEND_MAILS_TO')
         if not (self.content_settings('SEND_MAILS') and recipients):
             return
@@ -406,12 +407,12 @@ class FlagInstance(models.Model):
                         get_creator_admin_url()))
 
         subject = render_to_string([
-                'flag/mail_alert_subject_%s_%s.html' % (app_label, model_name),
+                'flag/mail_alert_subject_%s_%s.txt' % (app_label, model_name),
                 'flag/mail_alert_subject.txt'],
             context).replace("\n", " ").replace("\r", " ")
 
         message = render_to_string([
-                'flag/mail_alert_body_%s_%s.html' % (app_label, model_name),
+                'flag/mail_alert_body_%s_%s.txt' % (app_label, model_name),
                 'flag/mail_alert_body.txt'],
             context)
 
