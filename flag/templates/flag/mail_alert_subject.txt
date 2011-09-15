@@ -1,1 +1,1 @@
-{% load i18n %}{% blocktrans with object_id=object.pk count count=count %}Object {{ app_label }}.{{ model_name }} #{{ object_id }} was just flagged{% plural %}Object {{ app_label }}.{{ model_name }} #{{ object_id }} was just flagged ({{ count }} times){% endblocktrans %}
+{% load i18n %}{% blocktrans with object_id=object.pk count count=count %}Object {{ app_label }}.{{ model_name }} #{{ object_id }} was just flagged{% plural %}Object {{ app_label }}.{{ model_name }} #{{ object_id }} was just flagged ({{ count }} times in total){% endblocktrans %}
