@@ -109,7 +109,8 @@ class FlaggedContent(models.Model):
         """
         Show the flagged object in the unicode string
         """
-        return u'%s' % repr(self.content_object)
+        app_label, model = get_content_type_tuple(self.content_type_id)
+        return u'%s.%s #%s' % (app_label, model, self.object_id)
 
     def content_settings(self, name):
         """
@@ -322,6 +323,15 @@ class FlagInstance(models.Model):
 
     class Meta:
         ordering = ('-when_added',)
+
+    def __unicode__(self):
+        """
+        Show the flagged object in the unicode string
+        """
+        app_label, model = get_content_type_tuple(
+                self.flagged_content.content_type_id)
+        return u'flag on %s.%s #%s by user #%s' % (
+                app_label, model, self.flagged_content.object_id, self.user_id)
 
     def content_settings(self, name):
         """
