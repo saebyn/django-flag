@@ -170,7 +170,7 @@ Usage of the filter:
 
 ```html
 {% load flag_tags %}
-<a href="{{ anobject|flag_confirm_url }}">flag</a>
+<a href="{{ an_object|flag_confirm_url }}">flag</a>
 ```
 
 ### Signal
@@ -203,7 +203,7 @@ You can override these temlates by two ways :
 
 ### More template filters
 
-*django-flag* provides 3 more filters to use in your application :
+*django-flag* provides 3 more simple filters to use in your application :
 
 * `{{ an_object|can_be_flagged_by:request.user }}` Will return *True* or *False* depending if the user can flag this object or not, regarding all the flag settings
 * `{{ an_object|flag_count }}` : Will return the number of flag for this object
@@ -224,7 +224,33 @@ Example, with `an_object` having a `author` field as a *ForeignKey* to the `User
 
 ```html
 {% flag an_object 'author' %}
-<a href="{{ anobject|flag_confirm_url:'author' }}">flag</a>
+<a href="{{ an_object|flag_confirm_url:'author' }}">flag</a>
+```
+
+### Status
+In *django-flag* a flag has a status. By default it's set to the first entrie of the `FLAG_STATUSES` settings. But we provide some ways to let staff update the status by adding a `status` field in the form, filled with entries from the `FLAG_STATUSES` settings. :
+
+* a new (third) parameter to the `flag` templatetag, to be set to True (or whatever sounds like True...)
+* a temlpate tag `flag_with_status`, workin the same way as `flag` with the third paramter to True
+* a template filter : `flag_confirm_url_with_status`, working the same way as `flag_confirm_url`
+
+Note that if the user is not staff, displaying or validating the form with the `status` field will raise an exception.
+
+Exemple of usage :
+
+```html
+{% if user.is_staff %}
+    <a href="{{ an_object|flag_confirm_url_with_status }}">Update flag's status</a>
+{% else %}
+    <a href="{{ an_object|flag_confirm_url }}">flag</a>
+{% endif %}
+```
+
+or without confirmation page :
+
+```html
+{# `0` is here to say "no creator_field" #}
+{% flag an_object 0 user.is_staff %}
 ```
 
 ### Tests
