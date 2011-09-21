@@ -292,7 +292,8 @@ class FlagInstanceManager(models.Manager):
             status=None, send_signal=False, send_mails=False):
         """
         Helper to easily create a flag of an object
-        `content_creator` and `status` can only be set if it's the first flag
+        `content_creator` can only be set if it's the first flag
+        if `status` is updated, no signal/mails will be sent (update by staff)
         """
 
         # get or create the FlaggedContent object
@@ -301,12 +302,19 @@ class FlagInstanceManager(models.Manager):
                                          content_creator,
                                          status)
 
+        # status updated ?
+        new_status = status and flagged_content.status != status
+        if new_status:
+            flagged_content.status = status
+            flagged_content.save()
+
         # add the flag
         flag_instance = FlagInstance(
             flagged_content=flagged_content,
             user=user,
             comment=comment)
-        flag_instance.save(send_signal=send_signal, send_mails=send_mails)
+        flag_instance.save(send_signal=not new_status and send_signal,
+                           send_mails=not new_status and send_mails)
 
         return flag_instance
 

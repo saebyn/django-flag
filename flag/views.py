@@ -15,7 +15,8 @@ from django.utils.html import escape
 from django.conf import settings
 
 from flag import settings as flag_settings
-from flag.forms import FlagForm, FlagFormWithCreator, get_default_form
+from flag.forms import (FlagForm, FlagFormWithCreator, get_default_form,
+        FlagFormWithStatus, FlagFormWithCreatorAndStatus)
 from flag.models import FlaggedContent, FlagInstance
 from flag.exceptions import FlagException
 
@@ -60,20 +61,28 @@ class FlagBadRequest(HttpResponseBadRequest):
                                             {"why": why})
 
 
-def get_confirm_url_for_object(content_object, creator_field=None):
+def get_confirm_url_for_object(content_object, creator_field=None, with_status=False):
     """
     Return the url to the flag confirm page for the given object
-    TODO : raise if the object cannot be flaaged ?
+    `creator_field` and `with_status` will be passed in the query string
+    TODO : raise if the object cannot be flagged ?
     """
-    url_params = dict(
+    url = reverse('flag_confirm', kwargs=dict(
             app_label=content_object._meta.app_label,
             object_name=content_object._meta.module_name,
-            object_id=content_object.pk)
+            object_id=content_object.pk))
+
+    query_string_args = {}
 
     if creator_field:
-        url_params['creator_field'] = creator_field
+        query_string_args['creator_field'] = creator_field
+    if with_status:
+        query_string_args['with_status'] = 1
 
-    return reverse('flag_confirm', kwargs=url_params)
+    if query_string_args:
+        url += '?' + '&'.join('%s=%s' % (name, value) for name, value in query_string_args.items())
+
+    return url
 
 
 def get_content_object(ctype, object_pk):
@@ -110,6 +119,16 @@ def get_content_object(ctype, object_pk):
                 escape(ctype))
 
 
+def assert_user_can_change_status(user):
+    """
+    Raise a FlagBadRequest exception if the given user doesn't have enough
+    rights to update flag statuses.
+    """
+    if user and user.is_authenticated() and user.is_staff:
+        return
+    raise FlagBadRequest("Only staff can update a flag's status")
+
+
 @login_required
 def flag(request):
     """
@@ -120,6 +139,12 @@ def flag(request):
     if request.method == 'POST':
         post_data = request.POST.copy()
 
+        # only staff can update status
+        with_status = 'status' in post_data
+        if with_status:
+            assert_user_can_change_status(request.user)
+
+        # the object to flag
         object_pk = post_data.get('object_pk')
         content_object = get_content_object(post_data.get("content_type"),
                                             object_pk)
@@ -131,8 +156,13 @@ def flag(request):
 
         # get the form class regrding if we have a creator_field
         form_class = FlagForm
+
         if 'creator_field' in post_data:
             form_class = FlagFormWithCreator
+            if with_status:
+                form_class = FlagFormWithCreatorAndStatus
+        elif with_status:
+            form_class = FlagFormWithStatus
 
         form = form_class(target_object=content_object, data=post_data)
 
@@ -158,10 +188,13 @@ def flag(request):
             else:
                 comment = None
 
+            # manage status
+            status = form.cleaned_data.get('status', None) or None
+
             # add the flag, but check the user can do it
             try:
-                FlagInstance.objects.add(request.user, content_object,
-                    creator, comment, send_signal=True, send_mails=True)
+                FlagInstance.objects.add(request.user, content_object, creator,
+                    comment, status, send_signal=True, send_mails=True)
             except FlagException, e:
                 messages.error(request, unicode(e))
             else:
@@ -175,7 +208,6 @@ def flag(request):
                 app_label=content_type.app_label,
                 object_name=content_type.model,
                 object_id=object_pk,
-                creator_field=post_data.get('creator_field', None),
                 form=form)
 
     else:
@@ -188,13 +220,11 @@ def flag(request):
     else:
         raise Http404
 
-
 @login_required
 def confirm(request,
             app_label,
             object_name,
             object_id,
-            creator_field=None,
             form=None):
     """
     Display a confirmation page for the flagging, with the comment form
@@ -208,6 +238,16 @@ def confirm(request,
 
     # where to go when finished, also used on error
     next = get_next(request)
+
+    # additional parameters
+    if form:
+        with_status = 'status' in form.fields
+        creator_field = 'creator_field' in form.fields
+    else:
+        with_status = request.GET.get('with_status', False)
+        if with_status:
+            assert_user_can_change_status(request.user)
+        creator_field = request.GET.get('creator_field', None)
 
     # get the flagged_content, and test if it can be flagged by the user
     try:
@@ -223,7 +263,7 @@ def confirm(request,
         pass
 
     # define the form
-    form = form or get_default_form(content_object, creator_field)
+    form = form or get_default_form(content_object, creator_field, with_status)
 
     # ready to render
     context = dict(

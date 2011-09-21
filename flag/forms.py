@@ -120,11 +120,9 @@ class FlagForm(SecurityForm):
         Manage the `ALLOW_COMMENTS` settings
         """
         cleaned_data = super(FlagForm, self).clean()
-
         content_type = cleaned_data.get('content_type', None)
 
         if content_type is not None:
-
             allow_comments = flag_settings.get_for_model(content_type,
                                                          'ALLOW_COMMENTS')
             comment = cleaned_data.get('comment', None)
@@ -148,7 +146,29 @@ class FlagFormWithCreator(FlagForm):
     creator_field = forms.CharField(widget=forms.HiddenInput)
 
 
-def get_default_form(content_object, creator_field=None):
+class FlagFormWithStatusMixin(forms.Form):
+    """
+    This mixin will be used to augment the basic forms
+    """
+    status = forms.ChoiceField(choices=flag_settings.STATUS)
+
+
+class FlagFormWithStatus(FlagForm, FlagFormWithStatusMixin):
+    """
+    A FlagForm with a status field
+    """
+    pass
+
+
+class FlagFormWithCreatorAndStatus(FlagFormWithCreator,
+                                   FlagFormWithStatusMixin):
+    """
+    A FlagFormWithCreator with a status field
+    """
+    pass
+
+
+def get_default_form(content_object, creator_field=None, with_status=False):
     """
     Helper to get a form from the right class, with initial parameters set
     """
@@ -162,5 +182,9 @@ def get_default_form(content_object, creator_field=None):
     if creator_field:
         form_class = FlagFormWithCreator
         initial['creator_field'] = creator_field
+        if with_status:
+            form_class = FlagFormWithCreatorAndStatus
+    elif with_status:
+        form_class = FlagFormWithStatus
 
     return form_class(target_object=content_object, initial=initial)
