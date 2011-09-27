@@ -18,7 +18,7 @@ from flag import settings as flag_settings
 from flag.forms import (FlagForm, FlagFormWithCreator, get_default_form,
         FlagFormWithStatus, FlagFormWithCreatorAndStatus)
 from flag.models import FlaggedContent, FlagInstance
-from flag.exceptions import FlagException
+from flag.exceptions import FlagException, OnlyStaffCanUpdateStatus
 
 
 def _validate_next_parameter(request, next):
@@ -126,7 +126,7 @@ def assert_user_can_change_status(user):
     """
     if user and user.is_authenticated() and user.is_staff:
         return
-    raise FlagBadRequest("Only staff can update a flag's status")
+    raise OnlyStaffCanUpdateStatus("Only staff can update a flag's status")
 
 
 @login_required
@@ -142,7 +142,10 @@ def flag(request):
         # only staff can update status
         with_status = 'status' in post_data
         if with_status:
-            assert_user_can_change_status(request.user)
+            try:
+                assert_user_can_change_status(request.user)
+            except OnlyStaffCanUpdateStatus, e:
+                return FlagBadRequest(str(e))
 
         # the object to flag
         object_pk = post_data.get('object_pk')
@@ -221,11 +224,7 @@ def flag(request):
         raise Http404
 
 @login_required
-def confirm(request,
-            app_label,
-            object_name,
-            object_id,
-            form=None):
+def confirm(request, app_label, object_name, object_id, form=None):
     """
     Display a confirmation page for the flagging, with the comment form
     The template rendered is flag/confirm.html but it can be overrided for
@@ -246,7 +245,10 @@ def confirm(request,
     else:
         with_status = request.GET.get('with_status', False)
         if with_status:
-            assert_user_can_change_status(request.user)
+            try:
+                assert_user_can_change_status(request.user)
+            except OnlyStaffCanUpdateStatus, e:
+                return FlagBadRequest(str(e))
         creator_field = request.GET.get('creator_field', None)
 
     # get the flagged_content, and test if it can be flagged by the user

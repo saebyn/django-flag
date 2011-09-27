@@ -19,7 +19,8 @@ from flag import settings as flag_settings
 from flag.exceptions import *
 from flag.signals import content_flagged
 from flag.templatetags import flag_tags
-from flag.forms import FlagForm, FlagFormWithCreator, get_default_form
+from flag.forms import (FlagForm, FlagFormWithCreator, get_default_form,
+        FlagFormWithStatus, FlagFormWithCreatorAndStatus)
 from flag.views import (get_confirm_url_for_object,
                        get_content_object,
                        FlagBadRequest)
@@ -170,6 +171,13 @@ class BaseTestCaseWithData(BaseTestCase):
                 username='%s-2' % self.USER_BASE,
                 email='%s-2@exanple.com' % self.USER_BASE,
                 password=self.USER_BASE)
+        # staff user
+        self.staff_user = User.objects.create_user(
+                username='%s-staff' % self.USER_BASE,
+                email='%s-staff@example.com' % self.USER_BASE,
+                password=self.USER_BASE)
+        self.staff_user.is_staff = True
+        self.staff_user.save()
         # model without author
         self.model_without_author = ModelWithoutAuthor.objects.create(
                 name='foo')
@@ -751,6 +759,10 @@ class FlagTemplateTagsTestCase(BaseTestCaseWithData):
         self.assertEqual(flag_tags.flag_status(self.model_with_author),
                          flag_settings.STATUS[1][0])
 
+        # display status' string
+        self.assertEqual(flag_tags.flag_status(self.model_with_author, True),
+                         flag_settings.STATUS[1][1])
+
     def test_can_be_flagged_by(self):
         """
         Test the `can_be_flagged_by` filter
@@ -803,27 +815,48 @@ class FlagTemplateTagsTestCase(BaseTestCaseWithData):
         """
         # no object
         self.assertEqual(flag_tags.flag_confirm_url(None), "")
+        self.assertEqual(flag_tags.flag_confirm_url_with_status(None), "")
 
         # an existing object without author
-        wanted_url = reverse('flag_confirm', kwargs=dict(
+        wanted_url1 = reverse('flag_confirm', kwargs=dict(
                 app_label=self.model_without_author._meta.app_label,
                 object_name=self.model_without_author._meta.module_name,
                 object_id=self.model_without_author.id))
-        self.assertEqual(wanted_url, '/flag/tests/modelwithoutauthor/%d/'
+        self.assertEqual(wanted_url1, '/flag/tests/modelwithoutauthor/%d/'
                 % self.model_without_author.id)
         self.assertEqual(flag_tags.flag_confirm_url(self.model_without_author),
-                         wanted_url)
+                         wanted_url1)
 
         # an existing object with author
-        wanted_url = reverse('flag_confirm', kwargs=dict(
+        wanted_url2 = reverse('flag_confirm', kwargs=dict(
                 app_label=self.model_with_author._meta.app_label,
                 object_name=self.model_with_author._meta.module_name,
-                object_id=self.model_with_author.id,
-                creator_field='author'))
-        self.assertEqual(wanted_url, '/flag/tests/modelwithauthor/%d/author/'
+                object_id=self.model_with_author.id))
+        self.assertEqual(wanted_url2, '/flag/tests/modelwithauthor/%d/'
                 % self.model_with_author.id)
+        wanted_url2bis = wanted_url2 + '?creator_field=author'
+        self.assertEqual(wanted_url2bis,
+                '/flag/tests/modelwithauthor/%d/?creator_field=author'
+                    % self.model_with_author.id)
         self.assertEqual(flag_tags.flag_confirm_url(self.model_with_author,
-                'author'), wanted_url)
+                'author'), wanted_url2bis)
+
+        # url to update status
+        wanted_url1bis = wanted_url1 + '?with_status=1'
+        self.assertEqual(wanted_url1bis,
+                '/flag/tests/modelwithoutauthor/%d/?with_status=1'
+                    % self.model_without_author.id)
+        self.assertEqual(flag_tags.flag_confirm_url_with_status(
+                self.model_without_author), wanted_url1bis)
+
+        # status and creator field
+        wanted_url2ter = wanted_url2 + '?creator_field=author&with_status=1'
+        self.assertEqual(wanted_url2ter,
+                '/flag/tests/modelwithauthor/%d/'
+                '?creator_field=author&with_status=1'
+                    % self.model_with_author.id)
+        self.assertEqual(flag_tags.flag_confirm_url_with_status(
+                self.model_with_author, 'author'), wanted_url2ter)
 
     def test_flag(self):
         """
@@ -840,6 +873,17 @@ class FlagTemplateTagsTestCase(BaseTestCaseWithData):
         self.assertEqual(result['next'], None)
         # do not test form here
         self.assertTrue(isinstance(result['form'], FlagForm))
+
+        # with status
+        result = flag_tags.flag({}, self.model_without_author, with_status=True)
+        self.assertTrue(isinstance(result['form'], FlagFormWithStatus))
+        result = flag_tags.flag({}, self.model_with_author,
+                creator_field='author', with_status=True)
+        self.assertTrue(isinstance(result['form'], FlagFormWithCreatorAndStatus))
+
+        # helper for status
+        result = flag_tags.flag_with_status({}, self.model_without_author)
+        self.assertTrue(isinstance(result['form'], FlagFormWithStatus))
 
 
 class FlagFormTestCase(BaseTestCaseWithData):
@@ -975,7 +1019,7 @@ class FlagViewsTestCase(BaseTestCaseWithData):
         self.assertTrue('?next=%s' % url in resp['Location'])
 
         # authenticated user
-        self.client.login(username='%s-1' % self.USER_BASE,
+        self.client.login(username=self.user.username,
                           password=self.USER_BASE)
         resp = self.client.get(url)
         self.assertEqual(resp.status_code, 200)
@@ -992,10 +1036,25 @@ class FlagViewsTestCase(BaseTestCaseWithData):
         flag_settings.LIMIT_SAME_OBJECT_FOR_USER = 1
         resp = self.client.get(url)
         self.assertEqual(resp.status_code, 302)
+        flag_settings.LIMIT_SAME_OBJECT_FOR_USER = 0
 
         # bad content object
         resp = self.client.get('/flag/foo/bar/1000/')
         self.assertTrue(isinstance(resp, FlagBadRequest))
+
+        # test with_status
+        url_with_status = get_confirm_url_for_object(self.model_without_author,
+                with_status=True)
+        # user is not staff
+        resp = self.client.get(url_with_status)
+        self.assertEqual(resp.status_code, 400)
+        # user is staff
+        self.client.logout()
+        self.client.login(username=self.staff_user,
+                          password=self.USER_BASE)
+        resp = self.client.get(url_with_status)
+        self.assertEqual(resp.status_code, 200)
+
 
     def test_post_view(self):
         """
@@ -1085,6 +1144,21 @@ class FlagViewsTestCase(BaseTestCaseWithData):
         # test get access
         resp = self.client.get(url)
         self.assertTrue(isinstance(resp, FlagBadRequest))
+
+        # test with_status
+        data = copy(form_data)
+        data['status'] = '2'
+        # user is not staff
+        resp = self.client.post(url, data)
+        self.assertTrue(isinstance(resp, FlagBadRequest))
+        # user is staff
+        self.client.logout()
+        self.client.login(username=self.staff_user,
+                          password=self.USER_BASE)
+        resp = self.client.post(url, data)
+        flagged_content = FlaggedContent.objects.get_for_object(
+                self.model_without_author)
+        self.assertEqual(flagged_content.status, '2')
 
     def test_add_flag_compatibility(self):
         """

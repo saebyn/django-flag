@@ -43,3 +43,11 @@ class FlagCommentException(FlagException):
     object but with the ALLOW_COMMENTS settings to False (or the opposite)
     """
     pass
+
+
+class OnlyStaffCanUpdateStatus(FlagException):
+    """
+    Exception raised when someone not in staff try to update the status
+    of a flagged content
+    """
+    pass
