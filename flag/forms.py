@@ -149,15 +149,30 @@ class FlagFormWithCreator(FlagForm):
 class FlagFormWithStatusMixin(forms.Form):
     """
     This mixin will be used to augment the basic forms
+    It's based on `forms.Form` because fields are not found as forms fields
+    if it's simply base on `object` (it's a django "feature")
     """
-    status = forms.ChoiceField(choices=flag_settings.STATUS)
+    status = forms.TypedChoiceField(coerce=int, choices=flag_settings.STATUSES)
+
+    def __init__status_choices__(self):
+        """
+        Initialize the status choices
+        """
+        self.fields['status'].choices = flag_settings.get_for_model(
+                self.target_object, 'STATUSES')
 
 
 class FlagFormWithStatus(FlagForm, FlagFormWithStatusMixin):
     """
     A FlagForm with a status field
     """
-    pass
+
+    def __init__(self, *args, **kwargs):
+        """
+        Initialize the status choices
+        """
+        super(FlagFormWithStatus, self).__init__(*args, **kwargs)
+        self.__init__status_choices__()
 
 
 class FlagFormWithCreatorAndStatus(FlagFormWithCreator,
@@ -165,7 +180,13 @@ class FlagFormWithCreatorAndStatus(FlagFormWithCreator,
     """
     A FlagFormWithCreator with a status field
     """
-    pass
+
+    def __init__(self, *args, **kwargs):
+        """
+        Initialize the status choices
+        """
+        super(FlagFormWithCreatorAndStatus, self).__init__(*args, **kwargs)
+        self.__init__status_choices__()
 
 
 def get_default_form(content_object, creator_field=None, with_status=False):

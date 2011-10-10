@@ -650,17 +650,17 @@ class ModelsTestCase(BaseTestCaseWithData):
         # - unexisting
         flagged_content, created = FlaggedContent.objects.\
                 get_or_create_for_object(self.model_without_author,
-                                         status='2',
+                                         status=2,
                                          content_creator=self.author)
-        self.assertEqual(flagged_content.status, '2')
+        self.assertEqual(flagged_content.status, 2)
         self.assertEqual(flagged_content.creator, self.author)
 
         # - existing, status not updated (it's a feature)
         same_flagged_content, created = FlaggedContent.objects.\
                 get_or_create_for_object(self.model_without_author,
-                                         status='3',
+                                         status=3,
                                          content_creator=self.user)
-        self.assertEqual(same_flagged_content.status, '2')
+        self.assertEqual(same_flagged_content.status, 2)
         self.assertEqual(same_flagged_content.creator, self.author)
 
 
@@ -679,23 +679,23 @@ class FlagTestSettings(BaseTestCase):
 
         # no settings for this model
         flag_settings.MODELS_SETTINGS = {}
-        flag_settings.SEMD_MAILS = True
-        self.assertEqual(flag_settings.SEMD_MAILS,
+        flag_settings.SEND_MAILS = True
+        self.assertEqual(flag_settings.SEND_MAILS,
                 flag_settings.get_for_model(model_name, 'SEND_MAILS'))
-        self.assertEqual(flag_settings.SEMD_MAILS,
+        self.assertEqual(flag_settings.SEND_MAILS,
                 flag_settings.get_for_model(model, 'SEND_MAILS'))
 
         # a setting for this model
         flag_settings.MODELS_SETTINGS[model_name] = {}
         flag_settings.MODELS_SETTINGS[model_name]['SEND_MAILS'] = False
-        self.assertNotEqual(flag_settings.SEMD_MAILS,
+        self.assertNotEqual(flag_settings.SEND_MAILS,
                             flag_settings.get_for_model(model_name,
                                                         'SEND_MAILS'))
-        self.assertNotEqual(flag_settings.SEMD_MAILS,
+        self.assertNotEqual(flag_settings.SEND_MAILS,
                             flag_settings.get_for_model(model, 'SEND_MAILS'))
 
         # bad model
-        self.assertEqual(flag_settings.SEMD_MAILS,
+        self.assertEqual(flag_settings.SEND_MAILS,
                 flag_settings.get_for_model('bad-model', 'SEND_MAILS'))
 
         # forbidden setting
@@ -751,17 +751,17 @@ class FlagTemplateTagsTestCase(BaseTestCaseWithData):
         flagged_content = self._add_flagged_content(self.model_with_author)
         self._add_flag(flagged_content, comment='comment')
         self.assertEqual(flag_tags.flag_status(self.model_with_author),
-                         flag_settings.STATUS[0][0])
+                         flag_settings.STATUSES[0][0])
 
         # change the status
-        flagged_content.status = flag_settings.STATUS[1][0]
+        flagged_content.status = flag_settings.STATUSES[1][0]
         flagged_content.save()
         self.assertEqual(flag_tags.flag_status(self.model_with_author),
-                         flag_settings.STATUS[1][0])
+                         flag_settings.STATUSES[1][0])
 
         # display status' string
-        self.assertEqual(flag_tags.flag_status(self.model_with_author, True),
-                         flag_settings.STATUS[1][1])
+        self.assertEqual(unicode(flag_tags.flag_status(self.model_with_author, True)),
+                         unicode(flag_settings.STATUSES[1][1]))
 
     def test_can_be_flagged_by(self):
         """
@@ -1147,7 +1147,7 @@ class FlagViewsTestCase(BaseTestCaseWithData):
 
         # test with_status
         data = copy(form_data)
-        data['status'] = '2'
+        data['status'] = 2
         # user is not staff
         resp = self.client.post(url, data)
         self.assertTrue(isinstance(resp, FlagBadRequest))
@@ -1158,7 +1158,7 @@ class FlagViewsTestCase(BaseTestCaseWithData):
         resp = self.client.post(url, data)
         flagged_content = FlaggedContent.objects.get_for_object(
                 self.model_without_author)
-        self.assertEqual(flagged_content.status, '2')
+        self.assertEqual(flagged_content.status, 2)
 
     def test_add_flag_compatibility(self):
         """

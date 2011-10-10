@@ -46,16 +46,17 @@ Default to `None`.
 ### FLAG_STATUSES
 
 Set `FLAG_STATUSES` to a list of tuples to set the available statuses for each flagged content.
+The first entry MUST be a (small: less than 256) positive integer
 The default status used when a user flag an object is the first of this list.
 Default to :
 
 ```python
 FLAG_STATUSES = [
-    ("1", _("flagged")),
-    ("2", _("flag rejected by moderator")),
-    ("3", _("creator notified")),
-    ("4", _("content removed by creator")),
-    ("5", _("content removed by moderator")),
+    (1, _("flagged")),
+    (2, _("flag rejected by moderator")),
+    (3, _("creator notified")),
+    (4, _("content removed by creator")),
+    (5, _("content removed by moderator")),
 ]
 ```
 
@@ -96,7 +97,7 @@ FLAG_SEND_MAILS_RULES = [
 
 ### FLAG_MODELS_SETTINGS
 Use `FLAG_MODELS_SETTINGS` if you want to override the global settings for a specific model.
-It's a dict with the string represetation of the model (`myapp.mymodel`) as key, and a dict as value. This last dict can have zero, one or more of the settings described in this module (except `STATUS`, `MODELS` and of course `MODELS_SETTINGS`), using names WITHOUT the `FLAG_` prefix
+It's a dict with the string represetation of the model (`myapp.mymodel`) as key, and a dict as value. This last dict can have zero, one or more of the settings described in this module (`MODELS` and of course `MODELS_SETTINGS`), using names WITHOUT the `FLAG_` prefix
 Default to an empty dict : each model will use the global settings
 
 Exemple:
@@ -106,10 +107,17 @@ FLAG_SEND_MAILS = True
 FLAG_SEND_MAILS_TO = ('foo@example.com',)
 FLAG_MODELS_SETTINGS = {
     'myapp.mymodel': {
-        'SEND_MAILS_TO' = ('bar@example.com', 'baz@example.com',)
+        'SEND_MAILS_TO': ('bar@example.com', 'baz@example.com',)
     }
     'otherapp.othermodel': {
-        'SEND_MAILS' = False,
+        'SEND_MAILS': False,
+        'STATUSES': [
+            (1, 'Simple flag'),
+            (2, 'Rejected by moderator'),
+            (3, 'Rejected by super-moderator'),
+            (4, 'Accepted by moderator'),
+            (5, 'Accepted by super-moderator'),
+        ]
     },
 }
 ```

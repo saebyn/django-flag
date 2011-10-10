@@ -9,6 +9,7 @@ from django.utils.translation import ugettext_lazy as _, ungettext
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.contrib.sites.models import Site
+from django.utils.encoding import force_unicode
 
 from flag import settings as flag_settings
 from flag import signals
@@ -111,9 +112,7 @@ class FlaggedContent(models.Model):
                                 related_name="flagged_content",
                                 null=True,
                                 blank=True)
-    status = models.CharField(max_length=1,
-                              choices=flag_settings.STATUS,
-                              default=flag_settings.STATUS[0][0])
+    status = models.PositiveSmallIntegerField(default=1)
     # moderator responsible for last status change
     moderator = models.ForeignKey(User,
                                   null=True,
@@ -304,6 +303,15 @@ class FlaggedContent(models.Model):
             if really_send_mails:
                 flag_instance.send_mails()
 
+    def get_status_display(self):
+        """
+        Return the displayable value for the current status
+        (replace the original get_FIELD_display for this field which act as a
+        field with choices)
+        """
+        statuses = dict(flag_settings.get_for_model(self.content_object, 'STATUSES'))
+        return force_unicode(statuses[self.status], strings_only=True)
+
 
 class FlagInstanceManager(models.Manager):
     """
@@ -329,7 +337,7 @@ class FlagInstanceManager(models.Manager):
         if new_status:
             flagged_content.status = status
             # if the status is not the default one, we save the moderator
-            if status != settings.STATUS[0][0]:
+            if status != flag_settings.STATUSES[0][0]:
                 flagged_content.moderator = user
             flagged_content.save()
 
