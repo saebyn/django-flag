@@ -29,6 +29,28 @@ class FlaggedContentManager(models.Manager):
         return self.get(content_type__id=content_type.id,
                         object_id=content_object.id)
 
+    def filter_on_model(self, model):
+        """
+        Return a queryset to filter FlaggedContent on a given model
+        """
+        app_label, model = get_content_type_tuple(model)
+        return self.filter(content_type__app_label=app_label,
+                content_type__model=model)
+
+    def related_filter_params(self, model, generic_relation_name):
+        """
+        When a flaggable model has a GenericRelation to the FlaggedContent
+        model, it's possible to filter entries to get only the flagged ones,
+        using this method.
+        Example: If the model is Foo and the GenericRelation field to
+        FlaggedContent is "bar":
+            Foo.filter(**related_filter_params(Foo, 'bar'))
+        It's then easy to filter by status
+        """
+        app_label, model = get_content_type_tuple(model)
+        return {'%s__content_type__app_label' % generic_relation_name: app_label,
+                '%s__content_type__model' % generic_relation_name: model}
+
     def get_or_create_for_object(self,
                                  content_object,
                                  content_creator=None,
