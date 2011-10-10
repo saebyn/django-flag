@@ -328,6 +328,9 @@ class FlagInstanceManager(models.Manager):
         new_status = status and flagged_content.status != status
         if new_status:
             flagged_content.status = status
+            # if the status is not the default one, we save the moderator
+            if status != settings.STATUS[0][0]:
+                flagged_content.moderator = user
             flagged_content.save()
 
         # add the flag
