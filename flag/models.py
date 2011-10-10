@@ -335,8 +335,8 @@ class FlagInstanceManager(models.Manager):
             flagged_content=flagged_content,
             user=user,
             comment=comment)
-        flag_instance.save(send_signal=not new_status and send_signal,
-                           send_mails=not new_status and send_mails)
+        flag_instance.save(send_signal=send_signal,
+                           send_mails=send_mails)
 
         return flag_instance
 
