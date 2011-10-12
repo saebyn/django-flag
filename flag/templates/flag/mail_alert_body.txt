@@ -4,7 +4,7 @@ A "{{ app_label }}.{{ model_name }}" object (#{{ object_id }}) was just flagged:
 
     {{ object }}
 
-    Total flags: {{ count }}{% endblocktrans %}
+Total flags: {{ count }}{% endblocktrans %}
 {% if object_url %}    {% blocktrans with domain=site.domain %}Its url: http://{{ domain }}{{ object_url }}{% endblocktrans %}{% endif %}
 {% if object_admin_url %}    {% blocktrans with domain=site.domain %}Its admin url: http://{{ domain }}{{ object_admin_url }}{% endblocktrans %}{% endif %}
 {% if flag.comment %}{% blocktrans with comment=flag.comment %}
