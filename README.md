@@ -2,7 +2,7 @@
 
 This app lets users of your site flag content as inappropriate or spam.
 
-PS : the version 0.3 is a big rewrite, but with retrocompatibility kept in mind.
+PS : the version 0.3 is a big rewrite, but with retrocompatibility kept in mind. 0.4 broke a little this compatibility by updating fields in the `FlagInstance` model.
 
 ## Where's Wally ?
 
@@ -156,6 +156,8 @@ Usage:
 {% flag an_object %}
 ```
 
+If you want a moderator (user with `is_staff`) to update the status of the flagged content (default to 1 for a normal flag), you can use the `flag_with_status` temlatetag instead of the `flag` one. They both work the same way.
+
 ### Flag via a confirmation page
 
 If you want the form to be on an other page, which play the role of a confirmation page, you can use the `flag_confirm_url` template filter, which will insert the url of the confirm page for this object.
@@ -180,6 +182,8 @@ Usage of the filter:
 {% load flag_tags %}
 <a href="{{ an_object|flag_confirm_url }}">flag</a>
 ```
+
+If you want a moderator (user with `is_staff`) to update the status of the flagged content (default to 1 for a normal flag), you can use the `flag_confirm_url_with_status` filter instead of the `flag_confirm_url` one. They both work the same way.
 
 ### Signal
 
@@ -236,7 +240,9 @@ Example, with `an_object` having a `author` field as a *ForeignKey* to the `User
 ```
 
 ### Status
-In *django-flag* a flag has a status. By default it's set to the first entrie of the `FLAG_STATUSES` settings. But we provide some ways to let staff update the status by adding a `status` field in the form, filled with entries from the `FLAG_STATUSES` settings. :
+In *django-flag* a flag has a status. By default it's set to the first entrie of the `FLAG_STATUSES` settings (or a specific `STATUSES` setting for a specific model), which must have 1 has value.
+
+But we provide some ways to let staff update the status by adding a `status` field in the form, filled with entries from the `FLAG_STATUSES` settings. :
 
 * a new (third) parameter to the `flag` templatetag, to be set to True (or whatever sounds like True...)
 * a temlpate tag `flag_with_status`, workin the same way as `flag` with the third paramter to True
@@ -261,6 +267,8 @@ or without confirmation page :
 {% flag an_object 0 user.is_staff %}
 ```
 
+When the status is updated, the flagger is saved as the last moderator (`moderator` field in the `FlaggedContent` model)
+
 ### Tests
 
 *django-flag* is fully tested. Just run `manage.py test flag` in your project.
@@ -284,10 +292,11 @@ The `status` and `count` fields of the `FlaggedContent` object are updated on ea
 #### FlaggedContent
 
 This model keeps a reference to the flagged object, store its current status, the flags count, the last moderator, and, eventually, its creator (the user who created the flagged object)
+The `count` is the sum of all `FlagInstance` for the flagged object with a `status` of 1 (the moderations flag are ignored in the count)
 
 #### FlagInstance
 
-Each flag is stored in this model, which store the user/flagger, the flagged content, an optional comment, and the date of the flag
+Each flag is stored in this model, which store the user/flagger, the flagged content, an optional comment, the date of the flag, and the status (to keep history)
 
 You can add a flag programmatically with :
 

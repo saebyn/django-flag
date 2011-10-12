@@ -2,6 +2,15 @@
 django-flag CHANGELOG
 =====================
 
+0.4
+===
+ NOTICE : this version is not fully compatible with the previous one, because of updates in the FlagInstance model
+
+ * moderators (currently user with `is_staff`) can now update status
+ * the "flag count" count only flags with status == 1 ( to allow moderation even when limits are reached)
+ * remove of the unused `when_recalled` field
+ * the `STATUSES` setting can now be set for each flaggable model (as long as the first entry has a value of 1)
+
 0.3
 ===
 
