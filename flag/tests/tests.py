@@ -135,13 +135,15 @@ class BaseTestCase(TestCase):
         """
         FlaggedContent.objects.all().delete()
 
-    def _add_flag(self, flagged_content, comment=None):
+    def _add_flag(self, flagged_content, comment=None, status=None):
         """
         Add a flag to the given flagged_content
         """
         params = dict(user=self.user)
         if comment:
             params['comment'] = comment
+        if status:
+            params['status'] = status
         return flagged_content.flaginstance_set.create(**params)
 
     def _delete_flags(self):
@@ -476,10 +478,13 @@ class ModelsTestCase(BaseTestCaseWithData):
         """
         Test the total flags count for an object by adding flags
         """
-        def add():
-            return FlagInstance.objects.add(self.user,
-                                            self.model_without_author,
-                                            comment='comment')
+        def add(status=None):
+            params = dict(user=self.user,
+                          content_object=self.model_without_author,
+                          comment='comment')
+            if status is not None:
+                params['status'] = status
+            return FlagInstance.objects.add(**params)
 
         # test by simply adding flags
         self.assertEqual(add().flagged_content.count, 1)
@@ -490,6 +495,10 @@ class ModelsTestCase(BaseTestCaseWithData):
         previous_count = flag_instance.flagged_content.count
         flag_instance.when_added = datetime.now()
         flag_instance.save()
+        self.assertEqual(flag_instance.flagged_content.count, previous_count)
+
+        # add a flag with a moderation status : the count shouldn't change
+        flag_instance = add(status=2)
         self.assertEqual(flag_instance.flagged_content.count, previous_count)
 
     def test_count_flags_by_user(self):
@@ -504,6 +513,24 @@ class ModelsTestCase(BaseTestCaseWithData):
         for i in range(0, 9):
             self._add_flag(flagged_content, 'comment')
         self.assertEqual(flagged_content.count_flags_by_user(self.user), 10)
+
+    def test_moderator(self):
+        """
+        Test the set of the last moderator
+        """
+        flagged_content = self._add_flagged_content(self.model_without_author)
+        self.assertEqual(flagged_content.moderator, None)
+
+        flag_instance = FlagInstance.objects.add(user=self.user,
+                                content_object=self.model_without_author,
+                                comment='comment')
+        self.assertEqual(flag_instance.flagged_content.moderator, None)
+        flag_instance = FlagInstance.objects.add(user=self.user,
+                                content_object=self.model_without_author,
+                                comment='comment',
+                                status=2)
+        self.assertEqual(flag_instance.flagged_content.moderator.id, self.user.id)
+
 
     def test_signal(self):
         """
@@ -672,6 +699,37 @@ class ModelsTestCase(BaseTestCaseWithData):
                                          content_creator=self.user)
         self.assertEqual(same_flagged_content.status, 2)
         self.assertEqual(same_flagged_content.creator, self.author)
+
+    def test_filter_on_model(self):
+        """
+        Test the `filter_on_model` method of FlaggedContentManager
+        """
+        flagged_content, created = FlaggedContent.objects.\
+                get_or_create_for_object(self.model_without_author)
+
+        flagged_contents = FlaggedContent.objects.filter_on_model(ModelWithoutAuthor)
+        self.assertEqual(flagged_contents.count(), 1)
+        self.assertTrue(isinstance(flagged_contents[0], FlaggedContent))
+        self.assertEqual(flagged_contents[0].id, flagged_content.id)
+
+        flagged_contents = FlaggedContent.objects.filter_on_model(ModelWithAuthor)
+        self.assertEqual(flagged_contents.count(), 0)
+
+    def test_related_filter_params(self):
+        """
+        Test the `related_filter_params` method of FlaggedContentManager
+        """
+        flagged_content, created = FlaggedContent.objects.\
+                get_or_create_for_object(self.model_without_author)
+
+        wanted_params = {'flagged__content_type__model': 'modelwithoutauthor', 'flagged__content_type__app_label': 'tests'}
+        params = FlaggedContent.objects.related_filter_params(ModelWithoutAuthor, 'flagged')
+        self.assertEqual(params, wanted_params)
+
+        flagged_objects = ModelWithoutAuthor.objects.filter(**params)
+        self.assertEqual(flagged_objects.count(), 1)
+        self.assertTrue(isinstance(flagged_objects[0], ModelWithoutAuthor))
+        self.assertEqual(flagged_objects[0].id, self.model_without_author.id)
 
 
 class FlagTestSettings(BaseTestCase):
@@ -929,6 +987,23 @@ class FlagFormTestCase(BaseTestCaseWithData):
         self.assertTrue(isinstance(form, FlagFormWithCreator))
         self.assertEqual(form['creator_field'].value(), 'author')
 
+        # check with_status
+        form = get_default_form(self.model_without_author, with_status=True)
+        self.assertTrue(isinstance(form, FlagFormWithStatus))
+        self.assertEqual(form['status'].field.choices,
+                flag_settings.get_for_model(
+                    self.model_without_author,'STATUSES'))
+
+        # check with_status and with_author
+        form = get_default_form(self.model_with_author,
+                                'author',
+                                with_status=True)
+        self.assertTrue(isinstance(form, FlagFormWithCreatorAndStatus))
+        self.assertEqual(form['creator_field'].value(), 'author')
+        self.assertEqual(form['status'].field.choices,
+                flag_settings.get_for_model(
+                    self.model_with_author,'STATUSES'))
+
     def _get_form_data(self, obj, creator_field=None):
         """
         Helper to get some data for the form
@@ -1103,9 +1178,10 @@ class FlagViewsTestCase(BaseTestCaseWithData):
 
         # creator
         cform = get_default_form(self.model_with_author, 'author')
+        self.assertTrue('creator_field' in cform.fields)
         cform_data = dict((key, cform[key].value()) for key in cform.fields)
         cform_data.update(dict(csrf_token=None, comment='comment'))
-        resp = self.client.post(url, copy(cform_data))
+        resp = self.client.post(url, cform_data)
         self.assertTrue(isinstance(resp, HttpResponseRedirect))
         self.assertEqual(FlagInstance.objects.count(), 2)
         self.assertEqual(FlaggedContent.objects.get_for_object(
@@ -1165,10 +1241,28 @@ class FlagViewsTestCase(BaseTestCaseWithData):
         self.client.logout()
         self.client.login(username=self.staff_user,
                           password=self.USER_BASE)
+        count_before_obj = FlagInstance.objects.count()
+        count_before_inst = FlaggedContent.objects.get_for_object(
+                self.model_without_author).count
         resp = self.client.post(url, data)
         flagged_content = FlaggedContent.objects.get_for_object(
                 self.model_without_author)
         self.assertEqual(flagged_content.status, 2)
+        # we have a new flag instance
+        self.assertEqual(FlagInstance.objects.count(), count_before_obj+1)
+        # but the flag's count for this object is the same
+        self.assertEqual(flagged_content.count, count_before_inst)
+
+        # creator and status
+        form = get_default_form(self.model_with_author, creator_field='author')
+        data = dict((key, form[key].value()) for key in form.fields)
+        data.update(dict(csrf_token=None, comment='comment'))
+        data['status'] = 3
+        resp = self.client.post(url, data)
+        flagged_content = FlaggedContent.objects.get_for_object(
+                self.model_with_author)
+        self.assertEqual(flagged_content.status, 3)
+        self.assertEqual(flagged_content.moderator.id, self.staff_user.id)
 
     def test_add_flag_compatibility(self):
         """
