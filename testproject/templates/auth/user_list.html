@@ -12,6 +12,9 @@
                 Flagged {{ user_flag_count }} times (status "{{ user|flag_status:"full" }}")
                 {% else %}
                     Never flagged
+                    {% if user|flag_status %}
+                        (but status "{{ user|flag_status:"full" }}")
+                    {% endif %}
                 {% endif %}
             {% endwith %}
             -
