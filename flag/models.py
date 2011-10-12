@@ -241,7 +241,7 @@ class FlaggedContent(models.Model):
         url = None
         if self.creator:
             try:
-                url = self.content_object.creator.get_absolute_url()
+                url = User.objects.get(id=self.creator_id).get_absolute_url()
             except (AttributeError,  urlresolvers.NoReverseMatch):
                 pass
         return url

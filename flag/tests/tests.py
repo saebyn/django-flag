@@ -550,10 +550,13 @@ class ModelsTestCase(BaseTestCaseWithData):
         """
         Test if mails are correctly send
         """
-        def add(send_mails=True):
+        def add(send_mails=True, flagged_object=None, creator=None):
+            if not flagged_object:
+                flagged_object = self.model_without_author
             return FlagInstance.objects.add(self.user,
-                                            self.model_without_author,
+                                            flagged_object,
                                             comment='comment',
+                                            content_creator=creator,
                                             send_signal=False,
                                             send_mails=send_mails)
 
@@ -610,6 +613,13 @@ class ModelsTestCase(BaseTestCaseWithData):
         flag_settings.LIMIT_FOR_OBJECT = 17
         add()
         self.assertEqual(len(mail.outbox), 1)
+
+        # test creator
+        reset_outbox()
+        add(flagged_object=self.model_with_author,
+            creator=self.model_with_author.author)
+        self.assertTrue("The flagged object was created by %s" % (
+            self.model_with_author.author.username  in mail.outbox[0].body))
 
     def test_get_for_object(self):
         """
