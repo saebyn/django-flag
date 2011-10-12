@@ -144,7 +144,7 @@ class FlaggedContent(models.Model):
         Helper to get the number of flags on this flagged content by the
         given user
         """
-        return self.flaginstance_set.filter(user=user).count()
+        return self.flaginstance_set.filter(user=user, status=1).count()
 
     def can_be_flagged(self):
         """
@@ -260,13 +260,14 @@ class FlaggedContent(models.Model):
         """
         Called when a flag is added, to update the count and send a signal
         """
-        # increment the count
-        self.count = models.F('count') + 1
-        self.save()
+        # increment the count if status == 1
+        if self.status == 1:
+            self.count = models.F('count') + 1
+            self.save()
 
-        # update count of the current object
-        new_self = FlaggedContent.objects.get(id=self.id)
-        self.count = new_self.count
+            # update count of the current object
+            new_self = FlaggedContent.objects.get(id=self.id)
+            self.count = new_self.count
 
         # send a signal if wanted
         if send_signal:
