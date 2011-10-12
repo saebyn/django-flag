@@ -342,10 +342,16 @@ class FlagInstanceManager(models.Manager):
             flagged_content.save()
 
         # add the flag
-        flag_instance = FlagInstance(
+        params = dict(
             flagged_content=flagged_content,
             user=user,
             comment=comment)
+        if new_status:
+            params['status'] = status
+        else:
+            params['status'] = flagged_content.status
+
+        flag_instance = FlagInstance(**params)
         flag_instance.save(send_signal=send_signal,
                            send_mails=send_mails)
 
@@ -357,8 +363,8 @@ class FlagInstance(models.Model):
     flagged_content = models.ForeignKey(FlaggedContent)
     user = models.ForeignKey(User)  # user flagging the content
     when_added = models.DateTimeField(default=datetime.now)
-    when_recalled = models.DateTimeField(null=True)  # if recalled at all
     comment = models.TextField(null=True, blank=True)  # comment by the flagger
+    status = models.PositiveSmallIntegerField(default=1)
 
     objects = FlagInstanceManager()
 
