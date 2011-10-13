@@ -269,6 +269,37 @@ or without confirmation page :
 
 When the status is updated, the flagger is saved as the last moderator (`moderator` field in the `FlaggedContent` model)
 
+### GenericRelation and filters
+
+If you want to retrive some objects with a flag of a specific status, your can add a `GenericRelation` to your model:
+
+```python
+from flag.models import FlaggedContent
+
+class MyModel(models.Model):
+    ...
+    flagged = GenericRelation(FlaggedContent)
+```
+
+and then do :
+
+```python
+objects = MyModel.objects.filter(flagged__status=1)
+```
+
+If you cannot add a `GenericRelation` (if you can't update a model), you can do this :
+
+```python
+ct_filter = {'content_type__app_label': MyModel._meta.app_label, 'content_type__model': MyModel._meta.model_name}
+objects = MyModel.filter(id__in=FlaggedContent.objects.filter(**ct_filter).values_list('object_id', flat=True).filter(status=1))
+```
+
+or this, with a helper we provide :
+
+```python
+objects = MyModel.filter(id__in=FlaggedContent.objects.filter_on_model(MyModel, only_object_ids=True).filter(status=1))
+```
+
 ### Tests
 
 *django-flag* is fully tested. Just run `manage.py test flag` in your project.
