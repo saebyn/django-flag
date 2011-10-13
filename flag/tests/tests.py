@@ -721,26 +721,20 @@ class ModelsTestCase(BaseTestCaseWithData):
 
         # with only_ids
         qs_ids = FlaggedContent.objects.filter_on_model(
-                ModelWithoutAuthor, only_ids=True)
+                ModelWithoutAuthor, only_object_ids=True)
         objects = ModelWithoutAuthor.objects.filter(
                 id__in=qs_ids.filter(status=1))
         self.assertEqual(
                 [o.id for o in objects], [self.model_without_author.id])
 
-    def test_related_filter_params(self):
+    def test_generic_relation(self):
         """
-        Test the `related_filter_params` method of FlaggedContentManager
+        Test the use of a `GenericRelation` to FlaggedContentManager
         """
         flagged_content, created = FlaggedContent.objects.\
                 get_or_create_for_object(self.model_without_author)
 
-        wanted_params = {'flagged__content_type__model': 'modelwithoutauthor',
-                         'flagged__content_type__app_label': 'tests'}
-        params = FlaggedContent.objects.related_filter_params(
-                ModelWithoutAuthor, 'flagged')
-        self.assertEqual(params, wanted_params)
-
-        flagged_objects = ModelWithoutAuthor.objects.filter(**params)
+        flagged_objects = ModelWithoutAuthor.objects.filter(flagged__isnull=False)
         self.assertEqual(flagged_objects.count(), 1)
         self.assertTrue(isinstance(flagged_objects[0], ModelWithoutAuthor))
         self.assertEqual(flagged_objects[0].id, self.model_without_author.id)

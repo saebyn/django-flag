@@ -30,37 +30,22 @@ class FlaggedContentManager(models.Manager):
         return self.get(content_type__id=content_type.id,
                         object_id=content_object.id)
 
-    def filter_on_model(self, model, only_ids=False):
+    def filter_on_model(self, model, only_object_ids=False):
         """
         Return a queryset to filter FlaggedContent on a given model
-        If `only_ids` is True, the queryset will only returns a list of
-        FlaggedContent ids. It's usefull if the flagged model can not have
-        a GenericRelation (if you can't touch the model, like auth.User) :
+        If `only_object_ids` is True, the queryset will only returns a list of
+        object ids of the `model` model. It's usefull if the flagged model can
+        not have a GenericRelation (if you can't touch the model,
+        like auth.User) :
             User.objects.filter(id__in=FlaggedContent.objects.filter_on_model(
                 User, True).filter(status=2))
         """
         app_label, model = get_content_type_tuple(model)
         queryset = self.filter(content_type__app_label=app_label,
                 content_type__model=model)
-        if only_ids:
-            queryset = queryset.values_list('id', flat=True)
+        if only_object_ids:
+            queryset = queryset.values_list('object_id', flat=True)
         return queryset
-
-    def related_filter_params(self, model, generic_relation_name):
-        """
-        When a flaggable model has a GenericRelation to the FlaggedContent
-        model, it's possible to filter entries to get only the flagged ones,
-        using this method.
-        Example: If the model is Foo and the GenericRelation field to
-        FlaggedContent is "bar":
-            Foo.filter(**related_filter_params(Foo, 'bar'))
-        It's then easy to filter by status
-        """
-        app_label, model = get_content_type_tuple(model)
-        return {'%s__content_type__app_label' %
-                    generic_relation_name: app_label,
-                '%s__content_type__model' %
-                    generic_relation_name: model}
 
     def get_or_create_for_object(self,
                                  content_object,
