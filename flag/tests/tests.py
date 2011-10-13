@@ -715,6 +715,13 @@ class ModelsTestCase(BaseTestCaseWithData):
         flagged_contents = FlaggedContent.objects.filter_on_model(ModelWithAuthor)
         self.assertEqual(flagged_contents.count(), 0)
 
+        # with only_ids
+        qs_ids = FlaggedContent.objects.filter_on_model(ModelWithoutAuthor, only_ids=True)
+        objects = ModelWithoutAuthor.objects.filter(id__in=qs_ids.filter(status=1))
+        self.assertEqual([o.id for o in objects], [self.model_without_author.id])
+
+
+
     def test_related_filter_params(self):
         """
         Test the `related_filter_params` method of FlaggedContentManager

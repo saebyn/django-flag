@@ -30,13 +30,21 @@ class FlaggedContentManager(models.Manager):
         return self.get(content_type__id=content_type.id,
                         object_id=content_object.id)
 
-    def filter_on_model(self, model):
+    def filter_on_model(self, model, only_ids=False):
         """
         Return a queryset to filter FlaggedContent on a given model
+        If `only_ids` is True, the queryset will only returns a list of
+        FlaggedContent ids. It's usefull if the flagged model can not have
+        a GenericRelation (if you can't touch the model, like auth.User) :
+            User.objects.filter(id__in=FlaggedContent.objects.filter_on_model(
+                User, True).filter(status=2))
         """
         app_label, model = get_content_type_tuple(model)
-        return self.filter(content_type__app_label=app_label,
+        queryset = self.filter(content_type__app_label=app_label,
                 content_type__model=model)
+        if only_ids:
+            queryset = queryset.values_list('id', flat=True)
+        return queryset
 
     def related_filter_params(self, model, generic_relation_name):
         """
