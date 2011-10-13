@@ -357,7 +357,7 @@ class FlagInstanceManager(models.Manager):
 
 class FlagInstance(models.Model):
 
-    flagged_content = models.ForeignKey(FlaggedContent)
+    flagged_content = models.ForeignKey(FlaggedContent, related_name='flag_instances')
     user = models.ForeignKey(User)  # user flagging the content
     when_added = models.DateTimeField(default=datetime.now)
     comment = models.TextField(null=True, blank=True)  # comment by the flagger
