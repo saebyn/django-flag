@@ -297,7 +297,7 @@ objects = MyModel.filter(id__in=FlaggedContent.objects.filter(**ct_filter).value
 or this, with a helper we provide :
 
 ```python
-objects = MyModel.filter(id__in=FlaggedContent.objects.filter_on_model(MyModel, only_object_ids=True).filter(status=1))
+objects = MyModel.filter(id__in=FlaggedContent.objects.filter_for_model(MyModel, only_object_ids=True).filter(status=1))
 ```
 
 ### Tests

@@ -702,25 +702,25 @@ class ModelsTestCase(BaseTestCaseWithData):
         self.assertEqual(same_flagged_content.status, 2)
         self.assertEqual(same_flagged_content.creator, self.author)
 
-    def test_filter_on_model(self):
+    def test_filter_for_model(self):
         """
-        Test the `filter_on_model` method of FlaggedContentManager
+        Test the `filter_for_model` method of FlaggedContentManager
         """
         flagged_content, created = FlaggedContent.objects.\
                 get_or_create_for_object(self.model_without_author)
 
-        flagged_contents = FlaggedContent.objects.filter_on_model(
+        flagged_contents = FlaggedContent.objects.filter_for_model(
                 ModelWithoutAuthor)
         self.assertEqual(flagged_contents.count(), 1)
         self.assertTrue(isinstance(flagged_contents[0], FlaggedContent))
         self.assertEqual(flagged_contents[0].id, flagged_content.id)
 
-        flagged_contents = FlaggedContent.objects.filter_on_model(
+        flagged_contents = FlaggedContent.objects.filter_for_model(
                 ModelWithAuthor)
         self.assertEqual(flagged_contents.count(), 0)
 
         # with only_ids
-        qs_ids = FlaggedContent.objects.filter_on_model(
+        qs_ids = FlaggedContent.objects.filter_for_model(
                 ModelWithoutAuthor, only_object_ids=True)
         objects = ModelWithoutAuthor.objects.filter(
                 id__in=qs_ids.filter(status=1))
