@@ -144,7 +144,7 @@ class BaseTestCase(TestCase):
             params['comment'] = comment
         if status:
             params['status'] = status
-        return flagged_content.flaginstance_set.create(**params)
+        return flagged_content.flag_instances.create(**params)
 
     def _delete_flags(self):
         """
@@ -1178,7 +1178,7 @@ class FlagViewsTestCase(BaseTestCaseWithData):
         flagged_content = FlaggedContent.objects.get_for_object(
                 self.model_without_author)
         self.assertEqual(flagged_content.count, 1)
-        self.assertEqual(flagged_content.flaginstance_set.all()[0].comment,
+        self.assertEqual(flagged_content.flag_instances.all()[0].comment,
                          'comment')
 
         # bad object
@@ -1215,7 +1215,7 @@ class FlagViewsTestCase(BaseTestCaseWithData):
         flagged_content = FlaggedContent.objects.get_for_object(
                 self.model_without_author)
         self.assertEqual(flagged_content.count, 2)
-        self.assertIsNone(flagged_content.flaginstance_set.all()[0].comment)
+        self.assertIsNone(flagged_content.flag_instances.all()[0].comment)
 
         # limit by user
         flag_settings.LIMIT_SAME_OBJECT_FOR_USER = 2
