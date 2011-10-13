@@ -7,6 +7,7 @@ from flag.models import FlaggedContent
 
 register = template.Library()
 
+
 @register.inclusion_tag("flag/flag_form.html", takes_context=True)
 def flag(context, content_object, creator_field=None, with_status=False):
     """
@@ -21,6 +22,7 @@ def flag(context, content_object, creator_field=None, with_status=False):
     form = get_default_form(content_object, creator_field, with_status)
     return dict(form=form,
                 next=get_next(request))
+
 
 @register.inclusion_tag("flag/flag_form.html", takes_context=True)
 def flag_with_status(context, content_object, creator_field=None):
@@ -102,10 +104,11 @@ def flag_confirm_url_with_status(content_object, creator_field=None):
     """
     This filter will return the url of the flag confirm page for the given
     object.
-    The difference with `flag_confirm_url` is that in this form the user will be
-    able to choose the flag's status
+    The difference with `flag_confirm_url` is that in this form the user will
+    ne able to choose the flag's status
     Usage: {{ some_object|flag_confirm_url_with_status }}
-    Or, with a creator_field : {{ some_object|flag_confirm_url_with_status:"some_field" }}
+    Or, with a creator_field :
+        {{ some_object|flag_confirm_url_with_status:"some_field" }}
     """
     try:
         return get_confirm_url_for_object(content_object, creator_field, True)

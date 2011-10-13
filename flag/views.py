@@ -61,7 +61,9 @@ class FlagBadRequest(HttpResponseBadRequest):
                                             {"why": why})
 
 
-def get_confirm_url_for_object(content_object, creator_field=None, with_status=False):
+def get_confirm_url_for_object(content_object,
+                               creator_field=None,
+                               with_status=False):
     """
     Return the url to the flag confirm page for the given object
     `creator_field` and `with_status` will be passed in the query string
@@ -80,7 +82,8 @@ def get_confirm_url_for_object(content_object, creator_field=None, with_status=F
         query_string_args['with_status'] = 1
 
     if query_string_args:
-        url += '?' + '&'.join('%s=%s' % (name, value) for name, value in query_string_args.items())
+        url += '?' + '&'.join(
+                '%s=%s' % item for item in query_string_args.items())
 
     return url
 
@@ -222,6 +225,7 @@ def flag(request):
         return redirect(next)
     else:
         raise Http404
+
 
 @login_required
 def confirm(request, app_label, object_name, object_id, form=None):

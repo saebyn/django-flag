@@ -57,8 +57,10 @@ class FlaggedContentManager(models.Manager):
         It's then easy to filter by status
         """
         app_label, model = get_content_type_tuple(model)
-        return {'%s__content_type__app_label' % generic_relation_name: app_label,
-                '%s__content_type__model' % generic_relation_name: model}
+        return {'%s__content_type__app_label' %
+                    generic_relation_name: app_label,
+                '%s__content_type__model' %
+                    generic_relation_name: model}
 
     def get_or_create_for_object(self,
                                  content_object,
@@ -318,7 +320,8 @@ class FlaggedContent(models.Model):
         (replace the original get_FIELD_display for this field which act as a
         field with choices)
         """
-        statuses = dict(flag_settings.get_for_model(self.content_object, 'STATUSES'))
+        statuses = dict(flag_settings.get_for_model(self.content_object,
+                                                    'STATUSES'))
         return force_unicode(statuses[self.status], strings_only=True)
 
 
