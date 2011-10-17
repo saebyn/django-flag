@@ -2,7 +2,7 @@
 
 This app lets users of your site flag content as inappropriate or spam.
 
-PS : the version 0.3 is a big rewrite, but with retrocompatibility kept in mind. 0.4 broke a little this compatibility by updating fields in the `FlagInstance` model.
+PS : the version 0.3 is a big rewrite, but with retrocompatibility kept in mind. 0.4 broke a little this compatibility by updating fields inmodels.
 
 ## Where's Wally ?
 
@@ -318,12 +318,12 @@ The admin interface for *django-flag* has been improved a bit : better list and 
 
 There is two models in *django-flag*, `FlaggedContent` and `FlagInstance`, described below.
 When an object is flagged for the first time, a `FlaggedContent` is created, and each flag add a `FlagInstance` object.
-The `status` and `count` fields of the `FlaggedContent` object are updated on each flag.
+The `status`, `count` and `when_updated` fields of the `FlaggedContent` object are updated on each flag.
 
 #### FlaggedContent
 
 This model keeps a reference to the flagged object, store its current status, the flags count, the last moderator, and, eventually, its creator (the user who created the flagged object)
-The `count` is the sum of all `FlagInstance` for the flagged object with a `status` of 1 (the moderations flag are ignored in the count)
+The `count` is the sum of all `FlagInstance` for the flagged object with a `status` of 1 (the moderations flag are ignored in the count).
 
 #### FlagInstance
 

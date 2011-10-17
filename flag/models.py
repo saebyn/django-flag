@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from django.db import models
 from django.core import urlresolvers
 from django.contrib.auth.models import User
@@ -113,6 +111,7 @@ class FlaggedContent(models.Model):
                                   null=True,
                                   related_name="moderated_content")
     count = models.PositiveIntegerField(default=0)
+    when_updated = models.DateTimeField(auto_now=True, auto_now_add=True)
 
     # manager
     objects = FlaggedContentManager()
@@ -359,7 +358,7 @@ class FlagInstance(models.Model):
 
     flagged_content = models.ForeignKey(FlaggedContent, related_name='flag_instances')
     user = models.ForeignKey(User)  # user flagging the content
-    when_added = models.DateTimeField(default=datetime.now)
+    when_added = models.DateTimeField(auto_now=False, auto_now_add=True)
     comment = models.TextField(null=True, blank=True)  # comment by the flagger
     status = models.PositiveSmallIntegerField(default=1)
 
