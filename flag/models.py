@@ -320,6 +320,7 @@ class FlagInstanceManager(models.Manager):
         Helper to easily create a flag of an object
         `content_creator` can only be set if it's the first flag
         if `status` is updated, no signal/mails will be sent (update by staff)
+        TODO : move things in the `save` method of the `FlagInstance` model
         """
 
         # get or create the FlaggedContent object
@@ -328,21 +329,21 @@ class FlagInstanceManager(models.Manager):
                                          content_creator,
                                          status)
 
-        # status updated ?
-        new_status = status and flagged_content.status != status
-        if new_status:
+        # save new status, moderator and updated date
+        if status:
             flagged_content.status = status
             # if the status is not the default one, we save the moderator
             if status != flag_settings.STATUSES[0][0]:
                 flagged_content.moderator = user
-            flagged_content.save()
+        # always update the `when_updated` field
+        flagged_content.save()
 
         # add the flag
         params = dict(
             flagged_content=flagged_content,
             user=user,
             comment=comment)
-        if new_status:
+        if status:
             params['status'] = status
         else:
             params['status'] = flagged_content.status
