@@ -120,11 +120,9 @@ class FlagForm(SecurityForm):
         Manage the `ALLOW_COMMENTS` settings
         """
         cleaned_data = super(FlagForm, self).clean()
-
         content_type = cleaned_data.get('content_type', None)
 
         if content_type is not None:
-
             allow_comments = flag_settings.get_for_model(content_type,
                                                          'ALLOW_COMMENTS')
             comment = cleaned_data.get('comment', None)
@@ -148,7 +146,50 @@ class FlagFormWithCreator(FlagForm):
     creator_field = forms.CharField(widget=forms.HiddenInput)
 
 
-def get_default_form(content_object, creator_field=None):
+class FlagFormWithStatusMixin(forms.Form):
+    """
+    This mixin will be used to augment the basic forms
+    It's based on `forms.Form` because fields are not found as forms fields
+    if it's simply base on `object` (it's a django "feature")
+    """
+    status = forms.TypedChoiceField(coerce=int, choices=flag_settings.STATUSES)
+
+    def __init__status_choices__(self):
+        """
+        Initialize the status choices
+        """
+        self.fields['status'].choices = flag_settings.get_for_model(
+                self.target_object, 'STATUSES')
+
+
+class FlagFormWithStatus(FlagForm, FlagFormWithStatusMixin):
+    """
+    A FlagForm with a status field
+    """
+
+    def __init__(self, *args, **kwargs):
+        """
+        Initialize the status choices
+        """
+        super(FlagFormWithStatus, self).__init__(*args, **kwargs)
+        self.__init__status_choices__()
+
+
+class FlagFormWithCreatorAndStatus(FlagFormWithCreator,
+                                   FlagFormWithStatusMixin):
+    """
+    A FlagFormWithCreator with a status field
+    """
+
+    def __init__(self, *args, **kwargs):
+        """
+        Initialize the status choices
+        """
+        super(FlagFormWithCreatorAndStatus, self).__init__(*args, **kwargs)
+        self.__init__status_choices__()
+
+
+def get_default_form(content_object, creator_field=None, with_status=False):
     """
     Helper to get a form from the right class, with initial parameters set
     """
@@ -162,5 +203,9 @@ def get_default_form(content_object, creator_field=None):
     if creator_field:
         form_class = FlagFormWithCreator
         initial['creator_field'] = creator_field
+        if with_status:
+            form_class = FlagFormWithCreatorAndStatus
+    elif with_status:
+        form_class = FlagFormWithStatus
 
     return form_class(target_object=content_object, initial=initial)

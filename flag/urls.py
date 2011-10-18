@@ -10,9 +10,7 @@ from django.conf.urls.defaults import *
 
 
 urlpatterns = patterns("",
-    url(r'(?P<app_label>\w+)/(?P<object_name>\w+)/(?P<object_id>\d+)/'
-            r'(?:(?P<creator_field>\w+)/)?$',
-        "flag.views.confirm",
-        name="flag_confirm"),
+    url(r'(?P<app_label>\w+)/(?P<object_name>\w+)/(?P<object_id>\d+)/$',
+            "flag.views.confirm", name="flag_confirm"),
     url(r"^$", "flag.views.flag", name="flag"),
 )

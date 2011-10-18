@@ -7,7 +7,11 @@ __all__ = ('ALLOW_COMMENTS',
            'LIMIT_SAME_OBJECT_FOR_USER',
            'LIMIT_FOR_OBJECT',
            'MODELS',
-           'STATUS')
+           'STATUSES',
+           'SEND_MAILS',
+           'SEND_MAILS_TO',
+           'SEND_MAILS_FROM',
+           'SEND_MAILS_RULES')
 
 # keep the default values
 _DEFAULTS = dict(
@@ -15,12 +19,12 @@ _DEFAULTS = dict(
     LIMIT_SAME_OBJECT_FOR_USER=0,
     LIMIT_FOR_OBJECT=0,
     MODELS=None,
-    STATUS=[
-        ("1", _("flagged")),
-        ("2", _("flag rejected by moderator")),
-        ("3", _("creator notified")),
-        ("4", _("content removed by creator")),
-        ("5", _("content removed by moderator")),
+    STATUSES=[
+        (1, _("flagged")),
+        (2, _("flag rejected by moderator")),
+        (3, _("creator notified")),
+        (4, _("content removed by creator")),
+        (5, _("content removed by moderator")),
     ],
     SEND_MAILS=False,
     SEND_MAILS_TO=conf.settings.ADMINS,
@@ -57,7 +61,8 @@ MODELS = getattr(conf.settings, 'FLAG_MODELS', _DEFAULTS['MODELS'])
 # Set FLAG_STATUSES to a list of tuples in your settings to set the available
 # status for each flagged content
 # The default status used when a user flag an object is the first of this list.
-STATUS = getattr(conf.settings, "FLAG_STATUSES", _DEFAULTS['STATUS'])
+STATUSES = getattr(conf.settings, "FLAG_STATUSES",
+            getattr(conf.settings, "FLAG_STATUS", _DEFAULTS['STATUSES']))
 
 # Set FLAG_SEND_MAILS to True if you want to have emails sent when object are
 # flagged.
@@ -99,7 +104,7 @@ SEND_MAILS_RULES = getattr(conf.settings,
 # specific model.
 # It's a dict with the string represetation of the model (`myapp.mymodel`) as
 # key, and a dict as value. This last dict can have zero, one or more of the
-# settings described in this module (excepted `STATUS`, `MODELS` and of course
+# settings described in this module (excepted `MODELS` and of course
 # `MODELS_SETTINGS`), using names WITHOUT the `FLAG_` prefix
 # Default to an empty dict : each model will use the global settings
 MODELS_SETTINGS = getattr(conf.settings,
@@ -110,7 +115,7 @@ MODELS_SETTINGS = getattr(conf.settings,
 if SEND_MAILS and not SEND_MAILS_TO:
     SEND_MAILS = False
 
-_ONLY_GLOBAL_SETTINGS = ('STATUS', 'MODELS', 'MODELS_SETTINGS',)
+_ONLY_GLOBAL_SETTINGS = ('MODELS', 'MODELS_SETTINGS',)
 
 
 def get_for_model(model, name):

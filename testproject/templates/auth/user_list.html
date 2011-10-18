@@ -9,15 +9,19 @@
             -
             {% with user|flag_count as user_flag_count %}
                 {% if user_flag_count %}
-                Flagged {{ user_flag_count }} times (status {{ user|flag_status }})
+                Flagged {{ user_flag_count }} times (status "{{ user|flag_status:"full" }}")
                 {% else %}
                     Never flagged
+                    {% if user|flag_status %}
+                        (but status "{{ user|flag_status:"full" }}")
+                    {% endif %}
                 {% endif %}
             {% endwith %}
             -
             {% if request.user.is_authenticated %}
                 {% if user|can_be_flagged_by:request.user %}
                     <a href="{{ user|flag_confirm_url }}">Flag</a>
+                    <a href="{{ user|flag_confirm_url_with_status }}">Change status</a>
                 {% else %}
                     Cannot be flagged (no authorization or enough flagged)
                 {% endif %}

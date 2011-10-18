@@ -6,9 +6,7 @@ DIRNAME = os.path.dirname(__file__)
 DEBUG = True
 TEMPLATE_DEBUG = DEBUG
 
-ADMINS = (
-    # ('Your Name', 'your_email@example.com'),
-)
+ADMINS = ('bar@example.com',)
 
 MANAGERS = ADMINS
 
@@ -128,7 +126,7 @@ INSTALLED_APPS = (
 )
 
 try:
-    import nose
+    import xnose
 except:
     pass
 else:

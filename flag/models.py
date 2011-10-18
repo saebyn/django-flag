@@ -1,5 +1,3 @@
-from datetime import datetime
-
 from django.db import models
 from django.core import urlresolvers
 from django.contrib.auth.models import User
@@ -9,6 +7,7 @@ from django.utils.translation import ugettext_lazy as _, ungettext
 from django.core.mail import send_mail
 from django.template.loader import render_to_string
 from django.contrib.sites.models import Site
+from django.utils.encoding import force_unicode
 
 from flag import settings as flag_settings
 from flag import signals
@@ -28,6 +27,23 @@ class FlaggedContentManager(models.Manager):
         content_type = ContentType.objects.get_for_model(content_object)
         return self.get(content_type__id=content_type.id,
                         object_id=content_object.id)
+
+    def filter_for_model(self, model, only_object_ids=False):
+        """
+        Return a queryset to filter FlaggedContent on a given model
+        If `only_object_ids` is True, the queryset will only returns a list of
+        object ids of the `model` model. It's usefull if the flagged model can
+        not have a GenericRelation (if you can't touch the model,
+        like auth.User) :
+            User.objects.filter(id__in=FlaggedContent.objects.filter_for_model(
+                User, True).filter(status=2))
+        """
+        app_label, model = get_content_type_tuple(model)
+        queryset = self.filter(content_type__app_label=app_label,
+                content_type__model=model)
+        if only_object_ids:
+            queryset = queryset.values_list('object_id', flat=True)
+        return queryset
 
     def get_or_create_for_object(self,
                                  content_object,
@@ -89,14 +105,13 @@ class FlaggedContent(models.Model):
                                 related_name="flagged_content",
                                 null=True,
                                 blank=True)
-    status = models.CharField(max_length=1,
-                              choices=flag_settings.STATUS,
-                              default=flag_settings.STATUS[0][0])
+    status = models.PositiveSmallIntegerField(default=1)
     # moderator responsible for last status change
     moderator = models.ForeignKey(User,
                                   null=True,
                                   related_name="moderated_content")
     count = models.PositiveIntegerField(default=0)
+    when_updated = models.DateTimeField(auto_now=True, auto_now_add=True)
 
     # manager
     objects = FlaggedContentManager()
@@ -123,7 +138,7 @@ class FlaggedContent(models.Model):
         Helper to get the number of flags on this flagged content by the
         given user
         """
-        return self.flaginstance_set.filter(user=user).count()
+        return self.flag_instances.filter(user=user, status=1).count()
 
     def can_be_flagged(self):
         """
@@ -220,7 +235,7 @@ class FlaggedContent(models.Model):
         url = None
         if self.creator:
             try:
-                url = self.content_object.creator.get_absolute_url()
+                url = User.objects.get(id=self.creator_id).get_absolute_url()
             except (AttributeError,  urlresolvers.NoReverseMatch):
                 pass
         return url
@@ -239,13 +254,14 @@ class FlaggedContent(models.Model):
         """
         Called when a flag is added, to update the count and send a signal
         """
-        # increment the count
-        self.count = models.F('count') + 1
-        self.save()
+        # increment the count if status == 1
+        if self.status == 1:
+            self.count = models.F('count') + 1
+            self.save()
 
-        # update count of the current object
-        new_self = FlaggedContent.objects.get(id=self.id)
-        self.count = new_self.count
+            # update count of the current object
+            new_self = FlaggedContent.objects.get(id=self.id)
+            self.count = new_self.count
 
         # send a signal if wanted
         if send_signal:
@@ -282,6 +298,16 @@ class FlaggedContent(models.Model):
             if really_send_mails:
                 flag_instance.send_mails()
 
+    def get_status_display(self):
+        """
+        Return the displayable value for the current status
+        (replace the original get_FIELD_display for this field which act as a
+        field with choices)
+        """
+        statuses = dict(flag_settings.get_for_model(self.content_object,
+                                                    'STATUSES'))
+        return force_unicode(statuses[self.status], strings_only=True)
+
 
 class FlagInstanceManager(models.Manager):
     """
@@ -292,7 +318,9 @@ class FlagInstanceManager(models.Manager):
             status=None, send_signal=False, send_mails=False):
         """
         Helper to easily create a flag of an object
-        `content_creator` and `status` can only be set if it's the first flag
+        `content_creator` can only be set if it's the first flag
+        if `status` is updated, no signal/mails will be sent (update by staff)
+        TODO : move things in the `save` method of the `FlagInstance` model
         """
 
         # get or create the FlaggedContent object
@@ -301,23 +329,39 @@ class FlagInstanceManager(models.Manager):
                                          content_creator,
                                          status)
 
+        # save new status, moderator and updated date
+        if status:
+            flagged_content.status = status
+            # if the status is not the default one, we save the moderator
+            if status != flag_settings.STATUSES[0][0]:
+                flagged_content.moderator = user
+        # always update the `when_updated` field
+        flagged_content.save()
+
         # add the flag
-        flag_instance = FlagInstance(
+        params = dict(
             flagged_content=flagged_content,
             user=user,
             comment=comment)
-        flag_instance.save(send_signal=send_signal, send_mails=send_mails)
+        if status:
+            params['status'] = status
+        else:
+            params['status'] = flagged_content.status
+
+        flag_instance = FlagInstance(**params)
+        flag_instance.save(send_signal=send_signal,
+                           send_mails=send_mails)
 
         return flag_instance
 
 
 class FlagInstance(models.Model):
 
-    flagged_content = models.ForeignKey(FlaggedContent)
+    flagged_content = models.ForeignKey(FlaggedContent, related_name='flag_instances')
     user = models.ForeignKey(User)  # user flagging the content
-    when_added = models.DateTimeField(default=datetime.now)
-    when_recalled = models.DateTimeField(null=True)  # if recalled at all
+    when_added = models.DateTimeField(auto_now=False, auto_now_add=True)
     comment = models.TextField(null=True, blank=True)  # comment by the flagger
+    status = models.PositiveSmallIntegerField(default=1)
 
     objects = FlagInstanceManager()
 

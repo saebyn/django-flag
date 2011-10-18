@@ -2,7 +2,7 @@
 
 This app lets users of your site flag content as inappropriate or spam.
 
-PS : the version 0.3 is a big rewrite, but with retrocompatibility kept in mind.
+PS : the version 0.3 is a big rewrite, but with retrocompatibility kept in mind. 0.4 broke a little this compatibility by updating fields inmodels.
 
 ## Where's Wally ?
 
@@ -46,16 +46,17 @@ Default to `None`.
 ### FLAG_STATUSES
 
 Set `FLAG_STATUSES` to a list of tuples to set the available statuses for each flagged content.
+The first entry MUST be a (small: less than 256) positive integer
 The default status used when a user flag an object is the first of this list.
 Default to :
 
 ```python
 FLAG_STATUSES = [
-    ("1", _("flagged")),
-    ("2", _("flag rejected by moderator")),
-    ("3", _("creator notified")),
-    ("4", _("content removed by creator")),
-    ("5", _("content removed by moderator")),
+    (1, _("flagged")),
+    (2, _("flag rejected by moderator")),
+    (3, _("creator notified")),
+    (4, _("content removed by creator")),
+    (5, _("content removed by moderator")),
 ]
 ```
 
@@ -96,7 +97,7 @@ FLAG_SEND_MAILS_RULES = [
 
 ### FLAG_MODELS_SETTINGS
 Use `FLAG_MODELS_SETTINGS` if you want to override the global settings for a specific model.
-It's a dict with the string represetation of the model (`myapp.mymodel`) as key, and a dict as value. This last dict can have zero, one or more of the settings described in this module (except `STATUS`, `MODELS` and of course `MODELS_SETTINGS`), using names WITHOUT the `FLAG_` prefix
+It's a dict with the string represetation of the model (`myapp.mymodel`) as key, and a dict as value. This last dict can have zero, one or more of the settings described in this module (`MODELS` and of course `MODELS_SETTINGS`), using names WITHOUT the `FLAG_` prefix
 Default to an empty dict : each model will use the global settings
 
 Exemple:
@@ -106,10 +107,17 @@ FLAG_SEND_MAILS = True
 FLAG_SEND_MAILS_TO = ('foo@example.com',)
 FLAG_MODELS_SETTINGS = {
     'myapp.mymodel': {
-        'SEND_MAILS_TO' = ('bar@example.com', 'baz@example.com',)
+        'SEND_MAILS_TO': ('bar@example.com', 'baz@example.com',)
     }
     'otherapp.othermodel': {
-        'SEND_MAILS' = False,
+        'SEND_MAILS': False,
+        'STATUSES': [
+            (1, 'Simple flag'),
+            (2, 'Rejected by moderator'),
+            (3, 'Rejected by super-moderator'),
+            (4, 'Accepted by moderator'),
+            (5, 'Accepted by super-moderator'),
+        ]
     },
 }
 ```
@@ -148,6 +156,8 @@ Usage:
 {% flag an_object %}
 ```
 
+If you want a moderator (user with `is_staff`) to update the status of the flagged content (default to 1 for a normal flag), you can use the `flag_with_status` temlatetag instead of the `flag` one. They both work the same way.
+
 ### Flag via a confirmation page
 
 If you want the form to be on an other page, which play the role of a confirmation page, you can use the `flag_confirm_url` template filter, which will insert the url of the confirm page for this object.
@@ -170,8 +180,10 @@ Usage of the filter:
 
 ```html
 {% load flag_tags %}
-<a href="{{ anobject|flag_confirm_url }}">flag</a>
+<a href="{{ an_object|flag_confirm_url }}">flag</a>
 ```
+
+If you want a moderator (user with `is_staff`) to update the status of the flagged content (default to 1 for a normal flag), you can use the `flag_confirm_url_with_status` filter instead of the `flag_confirm_url` one. They both work the same way.
 
 ### Signal
 
@@ -203,7 +215,7 @@ You can override these temlates by two ways :
 
 ### More template filters
 
-*django-flag* provides 3 more filters to use in your application :
+*django-flag* provides 3 more simple filters to use in your application :
 
 * `{{ an_object|can_be_flagged_by:request.user }}` Will return *True* or *False* depending if the user can flag this object or not, regarding all the flag settings
 * `{{ an_object|flag_count }}` : Will return the number of flag for this object
@@ -224,7 +236,68 @@ Example, with `an_object` having a `author` field as a *ForeignKey* to the `User
 
 ```html
 {% flag an_object 'author' %}
-<a href="{{ anobject|flag_confirm_url:'author' }}">flag</a>
+<a href="{{ an_object|flag_confirm_url:'author' }}">flag</a>
+```
+
+### Status
+In *django-flag* a flag has a status. By default it's set to the first entrie of the `FLAG_STATUSES` settings (or a specific `STATUSES` setting for a specific model), which must have 1 has value.
+
+But we provide some ways to let staff update the status by adding a `status` field in the form, filled with entries from the `FLAG_STATUSES` settings. :
+
+* a new (third) parameter to the `flag` templatetag, to be set to True (or whatever sounds like True...)
+* a temlpate tag `flag_with_status`, workin the same way as `flag` with the third paramter to True
+* a template filter : `flag_confirm_url_with_status`, working the same way as `flag_confirm_url`
+
+Note that if the user is not staff, displaying or validating the form with the `status` field will raise an exception.
+
+Exemple of usage :
+
+```html
+{% if user.is_staff %}
+    <a href="{{ an_object|flag_confirm_url_with_status }}">Update flag's status</a>
+{% else %}
+    <a href="{{ an_object|flag_confirm_url }}">flag</a>
+{% endif %}
+```
+
+or without confirmation page :
+
+```html
+{# `0` is here to say "no creator_field" #}
+{% flag an_object 0 user.is_staff %}
+```
+
+When the status is updated, the flagger is saved as the last moderator (`moderator` field in the `FlaggedContent` model)
+
+### GenericRelation and filters
+
+If you want to retrive some objects with a flag of a specific status, your can add a `GenericRelation` to your model:
+
+```python
+from flag.models import FlaggedContent
+
+class MyModel(models.Model):
+    ...
+    flagged = GenericRelation(FlaggedContent)
+```
+
+and then do :
+
+```python
+objects = MyModel.objects.filter(flagged__status=1)
+```
+
+If you cannot add a `GenericRelation` (if you can't update a model), you can do this :
+
+```python
+ct_filter = {'content_type__app_label': MyModel._meta.app_label, 'content_type__model': MyModel._meta.model_name}
+objects = MyModel.filter(id__in=FlaggedContent.objects.filter(**ct_filter).values_list('object_id', flat=True).filter(status=1))
+```
+
+or this, with a helper we provide :
+
+```python
+objects = MyModel.filter(id__in=FlaggedContent.objects.filter_for_model(MyModel, only_object_ids=True).filter(status=1))
 ```
 
 ### Tests
@@ -245,15 +318,16 @@ The admin interface for *django-flag* has been improved a bit : better list and 
 
 There is two models in *django-flag*, `FlaggedContent` and `FlagInstance`, described below.
 When an object is flagged for the first time, a `FlaggedContent` is created, and each flag add a `FlagInstance` object.
-The `status` and `count` fields of the `FlaggedContent` object are updated on each flag.
+The `status`, `count` and `when_updated` fields of the `FlaggedContent` object are updated on each flag.
 
 #### FlaggedContent
 
 This model keeps a reference to the flagged object, store its current status, the flags count, the last moderator, and, eventually, its creator (the user who created the flagged object)
+The `count` is the sum of all `FlagInstance` for the flagged object with a `status` of 1 (the moderations flag are ignored in the count).
 
 #### FlagInstance
 
-Each flag is stored in this model, which store the user/flagger, the flagged content, an optional comment, and the date of the flag
+Each flag is stored in this model, which store the user/flagger, the flagged content, an optional comment, the date of the flag, and the status (to keep history)
 
 You can add a flag programmatically with :
 
