@@ -518,6 +518,7 @@ class ModelsTestCase(BaseTestCaseWithData):
         """
         Test the set of the last moderator
         """
+        flag_settings.LIMIT_SAME_OBJECT_FOR_USER = 1
         flagged_content = self._add_flagged_content(self.model_without_author)
         self.assertEqual(flagged_content.moderator, None)
 
@@ -533,6 +534,7 @@ class ModelsTestCase(BaseTestCaseWithData):
                 status=2)
         self.assertEqual(flag_instance.flagged_content.moderator.id,
                 self.user.id)
+        flag_settings.LIMIT_SAME_OBJECT_FOR_USER = 0
 
     def test_signal(self):
         """

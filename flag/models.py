@@ -396,7 +396,8 @@ class FlagInstance(models.Model):
         send_mails = kwargs.pop('send_mails', False)
 
         # check if the user can flag this object
-        self.flagged_content.assert_can_be_flagged_by_user(self.user)
+        if is_new and self.status == 1:
+            self.flagged_content.assert_can_be_flagged_by_user(self.user)
 
         # check comment
         if is_new:
