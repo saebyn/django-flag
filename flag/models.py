@@ -105,7 +105,7 @@ class FlaggedContent(models.Model):
                                 related_name="flagged_content",
                                 null=True,
                                 blank=True)
-    status = models.PositiveSmallIntegerField(default=1)
+    status = models.PositiveSmallIntegerField(default=1, db_index=True)
     # moderator responsible for last status change
     moderator = models.ForeignKey(User,
                                   null=True,
@@ -361,7 +361,7 @@ class FlagInstance(models.Model):
     user = models.ForeignKey(User)  # user flagging the content
     when_added = models.DateTimeField(auto_now=False, auto_now_add=True)
     comment = models.TextField(null=True, blank=True)  # comment by the flagger
-    status = models.PositiveSmallIntegerField(default=1)
+    status = models.PositiveSmallIntegerField(default=1, db_index=True)
 
     objects = FlagInstanceManager()
 
