@@ -202,10 +202,12 @@ def flag(request):
                 FlagInstance.objects.add(request.user, content_object, creator,
                     comment, status, send_signal=True, send_mails=True)
             except FlagException, e:
-                messages.error(request, unicode(e))
+                if not request.is_ajax():
+                    messages.error(request, unicode(e))
             else:
-                messages.success(request, _("You have added a flag. A "
-                        "moderator will review your submission shortly."))
+                if not request.is_ajax():
+                    messages.success(request, _("You have added a flag. A "
+                            "moderator will review your submission shortly."))
 
         else:
             # form not valid, we return to the confirm page
@@ -261,7 +263,8 @@ def confirm(request, app_label, object_name, object_id, form=None):
         try:
             flagged_content.assert_can_be_flagged_by_user(request.user)
         except FlagException, e:
-            messages.error(request, unicode(e))
+            if not request.is_ajax():
+                messages.error(request, unicode(e))
             return redirect(next)
     except ObjectDoesNotExist:
         # if the FlaggedContent does not exists, the object was never flagged
