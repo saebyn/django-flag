@@ -115,6 +115,13 @@ class FlagForm(SecurityForm):
                               label=_(u'Comment'),
                               required=False)
 
+    def __init__(self, *args, **kwargs):
+        super(FlagForm, self).__init__(*args, **kwargs)
+        content_type = kwargs.get('initial', {}).get('content_type')
+
+        if not flag_settings.get_for_model(content_type, 'ALLOW_COMMENTS'):
+            self.fields['comment'].widget = forms.HiddenInput()
+
     def clean(self):
         """
         Manage the `ALLOW_COMMENTS` settings
